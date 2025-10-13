@@ -1,0 +1,749 @@
+import React, { useState, useEffect } from 'react';
+import './Slideshow.css';
+
+const PIE_COLORS = ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#c084fc', '#f472b6'];
+const CHART_SERIES_COLORS = [
+  '#2563eb',
+  '#f97316',
+  '#34d399',
+  '#fbbf24',
+  '#c084fc',
+  '#f472b6'
+];
+
+const hexToRgba = (hex, alpha = 1) => {
+  const sanitized = hex.replace('#', '');
+  if (sanitized.length !== 6) {
+    return hex;
+  }
+  const value = parseInt(sanitized, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const normalizeChartStructure = (chart) => {
+  if (!chart || chart.type !== 'chart') {
+    return { series: [], data: [] };
+  }
+
+  const paletteColor = (index) =>
+    CHART_SERIES_COLORS[index % CHART_SERIES_COLORS.length];
+
+  const inputSeries = Array.isArray(chart.series) ? chart.series : [];
+  let seriesList =
+    inputSeries.length > 0
+      ? inputSeries.map((series, index) => {
+          const fallbackColor =
+            index === 0 && chart.accentColor
+              ? chart.accentColor
+              : paletteColor(index);
+          return {
+            id: series?.id || `series-${index}`,
+            name:
+              typeof series?.name === 'string' && series.name.trim()
+                ? series.name
+                : `Series ${index + 1}`,
+            color:
+              typeof series?.color === 'string' && series.color.trim()
+                ? series.color
+                : fallbackColor
+          };
+        })
+      : [
+          {
+            id: 'series-0',
+            name: 'Series 1',
+            color: chart.accentColor || paletteColor(0)
+          }
+        ];
+
+  const seenSeriesIds = new Set();
+  seriesList = seriesList.map((series, index) => {
+    let id = series.id;
+    if (!id || seenSeriesIds.has(id)) {
+      id = `series-${index}`;
+    }
+    seenSeriesIds.add(id);
+    return {
+      id,
+      name: series.name,
+      color: series.color || paletteColor(index)
+    };
+  });
+
+  const ensureValuesForSeries = (values) => {
+    const sanitized = {};
+    seriesList.forEach((series) => {
+      const raw = values?.[series.id];
+      const numeric = Number(raw);
+      sanitized[series.id] = Number.isFinite(numeric) ? numeric : 0;
+    });
+    return sanitized;
+  };
+
+  const rawData = Array.isArray(chart.data) ? chart.data : [];
+  const data = rawData.map((point, index) => {
+    const label =
+      typeof point?.label === 'string' && point.label.trim()
+        ? point.label
+        : `Item ${index + 1}`;
+    const id = point?.id || `category-${index}`;
+
+    if (point?.values && typeof point.values === 'object') {
+      return {
+        id,
+        label,
+        values: ensureValuesForSeries(point.values)
+      };
+    }
+
+    const values = ensureValuesForSeries({});
+    if (Number.isFinite(Number(point?.value))) {
+      const firstSeries = seriesList[0];
+      if (firstSeries) {
+        values[firstSeries.id] = Number(point.value);
+      }
+    }
+
+    return { id, label, values };
+  });
+
+  if (!data.length) {
+    data.push({
+      id: 'category-0',
+      label: 'Category 1',
+      values: ensureValuesForSeries({})
+    });
+  }
+
+  return {
+    series: seriesList,
+    data
+  };
+};
+
+const renderChartVisual = (chart) => {
+  const { series, data } = normalizeChartStructure(chart);
+  if (!data.length || !series.length) {
+    return (
+      <div className="chart-empty">
+        Add data rows to populate this chart.
+        <br />
+        You can add data rows by clicking the "Add Row" button in the chart editor.
+      </div>
+    );
+  }
+
+  const chartTitle = chart.title?.trim() || '';
+  const axisLabels = {
+    x: chart.xAxisLabel || 'Categories',
+    y: chart.yAxisLabel || 'Value'
+  };
+
+  const renderLegend = (orientation = 'vertical') => {
+    if (!series.length) {
+      return null;
+    }
+    return (
+      <div className={`chart-legend chart-legend-${orientation}`}>
+        {series.map((seriesItem) => (
+          <div key={seriesItem.id} className="chart-legend-item">
+            <span
+              className="chart-legend-swatch"
+              style={{ backgroundColor: seriesItem.color || '#1a73e8' }}
+            />
+            <span className="chart-legend-label">{seriesItem.name}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  if (chart.chartType === 'pie') {
+    const primarySeries = series[0];
+    const pieData = data.map((point, index) => ({
+      id: point.id,
+      label: point.label || `Item ${index + 1}`,
+      value: Number(point.values[primarySeries?.id]) || 0
+    }));
+    const total = Math.max(
+      pieData.reduce((sum, item) => sum + item.value, 0),
+      1
+    );
+    let cumulative = 0;
+    const gradientSegments = pieData
+      .map((item, idx) => {
+        const start = (cumulative / total) * 360;
+        cumulative += item.value;
+        const end = (cumulative / total) * 360;
+        const color =
+          series[idx]?.color || PIE_COLORS[idx % PIE_COLORS.length];
+        return `${color} ${start}deg ${end}deg`;
+      })
+      .join(', ');
+
+    return (
+      <div className="chart-visual chart-visual-pie">
+        {chartTitle && <div className="chart-title">{chartTitle}</div>}
+        <div
+          className="chart-pie"
+          style={{ background: `conic-gradient(${gradientSegments})` }}
+        />
+        <div className="chart-legend chart-legend-vertical">
+          {pieData.map((item, idx) => (
+            <div key={item.id} className="chart-legend-item">
+              <span
+                className="chart-legend-swatch"
+                style={{
+                  backgroundColor:
+                    series[idx]?.color || PIE_COLORS[idx % PIE_COLORS.length]
+                }}
+              />
+              <span className="chart-legend-label">
+                {item.label} - {item.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const allValues = data.flatMap((point) =>
+    series.map((seriesItem) => Number(point.values[seriesItem.id]) || 0)
+  );
+  const maxSingleValue = Math.max(...allValues, 1);
+
+  if (chart.chartType === 'line' || chart.chartType === 'area') {
+    const xPositions = data.map((_, idx) =>
+      data.length === 1 ? 50 : (idx / (data.length - 1)) * 100
+    );
+
+    const seriesPaths = series.map((seriesItem) => {
+      const coords = data.map((point, idx) => {
+        const value = Number(point.values[seriesItem.id]) || 0;
+        const y = 100 - (value / maxSingleValue) * 100;
+        return { x: xPositions[idx], y };
+      });
+      return {
+        series: seriesItem,
+        coords,
+        linePoints: coords.map(({ x, y }) => `${x},${y}`).join(' '),
+        polygonPoints: `0,100 ${coords
+          .map(({ x, y }) => `${x},${y}`)
+          .join(' ')} 100,100`
+      };
+    });
+
+    const gradientId = (seriesItem) =>
+      `chartAreaGradient-${chart.id ?? 'preview'}-${seriesItem.id}`;
+
+    return (
+      <div className="chart-visual chart-visual-line">
+        {chartTitle && <div className="chart-title">{chartTitle}</div>}
+        <div className="chart-plot-area">
+          <div className="chart-axis-title chart-axis-title-y">
+            {axisLabels.y}
+          </div>
+          <div className="chart-line-body">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+              <defs>
+                {seriesPaths.map(({ series: seriesItem }) => (
+                  <linearGradient
+                    key={seriesItem.id}
+                    id={gradientId(seriesItem)}
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor={hexToRgba(seriesItem.color || '#1a73e8', 0.5)}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={hexToRgba(seriesItem.color || '#1a73e8', 0.05)}
+                    />
+                  </linearGradient>
+                ))}
+              </defs>
+              {chart.chartType === 'area' &&
+                seriesPaths.map(({ series: seriesItem, polygonPoints }) => (
+                  <polygon
+                    key={`${seriesItem.id}-area`}
+                    points={polygonPoints}
+                    fill={`url(#${gradientId(seriesItem)})`}
+                    stroke="none"
+                  />
+                ))}
+              {seriesPaths.map(({ series: seriesItem, linePoints }) => (
+                <polyline
+                  key={`${seriesItem.id}-line`}
+                  points={linePoints}
+                  fill="none"
+                  stroke={seriesItem.color || '#1a73e8'}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ))}
+              {seriesPaths.map(({ series: seriesItem, coords }) =>
+                coords.map((coord, idx) => (
+                  <circle
+                    key={`${seriesItem.id}-point-${data[idx].id}`}
+                    cx={coord.x}
+                    cy={coord.y}
+                    r={2.5}
+                    fill={seriesItem.color || '#1a73e8'}
+                  />
+                ))
+              )}
+            </svg>
+            <div className="chart-axis-labels">
+              {data.map((point) => (
+                <span key={point.id}>{point.label}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="chart-axis-title chart-axis-title-x">
+          {axisLabels.x}
+        </div>
+        {renderLegend('horizontal')}
+      </div>
+    );
+  }
+
+  // Default to stacked bar chart
+  const totals = data.map((point) =>
+    series.reduce(
+      (sum, seriesItem) => sum + (Number(point.values[seriesItem.id]) || 0),
+      0
+    )
+  );
+  const maxValue = Math.max(...totals, 1);
+  const gridlines = Array.from({ length: 5 }, (_, idx) => idx / 4);
+
+  return (
+    <div className="chart-visual chart-visual-bar">
+      {chartTitle && <div className="chart-title">{chartTitle}</div>}
+      <div className="chart-plot-area">
+        <div className="chart-axis-title chart-axis-title-y">
+          {axisLabels.y}
+        </div>
+        <div className="chart-bar-body">
+          <div className="chart-gridlines">
+            {gridlines.map((fraction, idx) => (
+              <span
+                key={`grid-${idx}`}
+                className="chart-gridline"
+                style={{ bottom: `${fraction * 100}%` }}
+              />
+            ))}
+          </div>
+          <div className="chart-bar-group">
+            {data.map((point) => {
+              let cumulativeHeight = 0;
+              return (
+                <div key={point.id} className="chart-bar">
+                  <div className="chart-bar-track">
+                    {series.map((seriesItem) => {
+                      const value =
+                        Number(point.values[seriesItem.id]) || 0;
+                      const heightPercent = Math.max(
+                        (value / maxValue) * 100,
+                        0
+                      );
+                      const segment = (
+                        <div
+                          key={seriesItem.id}
+                          className="chart-bar-segment"
+                          style={{
+                            height: `${heightPercent}%`,
+                            backgroundColor: seriesItem.color || '#1a73e8',
+                            bottom: `${cumulativeHeight}%`
+                          }}
+                          title={`${seriesItem.name}: ${value}`}
+                        />
+                      );
+                      cumulativeHeight += heightPercent;
+                      return segment;
+                    })}
+                  </div>
+                  <span className="chart-bar-label">{point.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="chart-axis-title chart-axis-title-x">{axisLabels.x}</div>
+      {renderLegend('horizontal')}
+    </div>
+  );
+};
+
+const Slideshow = ({ slides, currentSlide, setCurrentSlide, onExit }) => {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedChartData, setSelectedChartData] = useState(null);
+
+  const handleChartClick = (chart) => {
+    const normalized = normalizeChartStructure(chart);
+    setSelectedChartData({
+      ...chart,
+      data: normalized.data,
+      series: normalized.series
+    });
+  };
+
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      switch (e.key) {
+        case 'ArrowRight':
+        case ' ':
+          nextSlide();
+          break;
+        case 'ArrowLeft':
+          prevSlide();
+          break;
+        case 'Escape':
+          onExit();
+          break;
+        case 'f':
+        case 'F':
+          toggleFullscreen();
+          break;
+        default:
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSlide, slides.length]);
+
+  const nextSlide = () => {
+    if (currentSlide < slides.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    }
+  };
+
+  const prevSlide = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  const slide = slides[currentSlide];
+
+  return (
+    <div className="slideshow-container">
+      <div className="slideshow-header">
+        <div className="slideshow-controls">
+          <button onClick={prevSlide} disabled={currentSlide === 0}>
+            Previous
+          </button>
+          <span className="slide-counter">
+            {currentSlide + 1} / {slides.length}
+          </span>
+          <button onClick={nextSlide} disabled={currentSlide === slides.length - 1}>
+            Next
+          </button>
+        </div>
+        <div className="slideshow-actions">
+          <button onClick={toggleFullscreen}>
+            {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+          </button>
+          <button onClick={onExit}>Exit</button>
+        </div>
+      </div>
+
+      <div 
+        className="slideshow-slide" 
+        style={{ 
+          backgroundColor: slide.background || '#ffffff',
+          position: 'relative',
+          flex: 1,
+          margin: '20px',
+          borderRadius: '12px',
+          overflow: 'hidden',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)'
+        }}
+      >
+        <div 
+          className="slide-content-container"
+          style={{
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden'
+          }}
+        >
+          {slide.content && slide.content.map((element) => (
+            <div 
+              key={element.id}
+              style={{
+                position: 'absolute',
+                left: `${element.x || 0}px`,
+                top: `${element.y || 0}px`,
+                width: `${element.width || 200}px`,
+                height: `${element.height || 100}px`,
+                zIndex: element.zIndex || 1
+              }}
+            >
+              {element.type === 'text' && (
+                <div
+                  className="slideshow-text-element"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    fontSize: `${element.fontSize || 16}px`,
+                    fontFamily: element.fontFamily || 'Arial, sans-serif',
+                    color: element.color || '#333333',
+                    fontWeight: element.fontWeight || 'normal',
+                    fontStyle: element.italic ? 'italic' : 'normal',
+                    textDecoration: element.underline ? 'underline' : 'none',
+                    padding: '8px 12px',
+                    boxSizing: 'border-box',
+                    wordBreak: 'break-word',
+                    overflow: 'hidden',
+                    textAlign: element.textAlign || 'left',
+                    lineHeight: 1.4,
+                    backgroundColor: element.backgroundColor || 'transparent',
+                    borderRadius: '4px'
+                  }}
+                  dangerouslySetInnerHTML={{ __html: element.text || '' }}
+                />
+              )}
+
+              {element.type === 'shape' && (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: element.backgroundColor || '#000000',
+                    borderRadius: element.shape === 'rectangle' ? '4px' : '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: element.color || '#ffffff',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    padding: '8px',
+                    boxSizing: 'border-box',
+                    textAlign: 'center'
+                  }}
+                >
+                  {element.text || ''}
+                </div>
+              )}
+
+              {element.type === 'chart' && (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: element.background || '#ffffff',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {renderChartVisual(element)}
+                </div>
+              )}
+
+              {element.type === 'image' && element.src && (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'transparent',
+                    overflow: 'hidden',
+                    borderRadius: '4px'
+                  }}
+                >
+                  <img
+                    src={element.src}
+                    alt={element.alt || ''}
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain',
+                      display: 'block'
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {selectedChartData && (
+        <div className="chart-data-modal" onClick={() => setSelectedChartData(null)}>
+          <div className="chart-data-content" onClick={(e) => e.stopPropagation()}>
+            <div className="chart-data-header">
+              <h3>{selectedChartData.chartType?.toUpperCase()} Chart Data</h3>
+              <button onClick={() => setSelectedChartData(null)}>×</button>
+            </div>
+            <div className="chart-data-body">
+              {selectedChartData.series && selectedChartData.series.length > 0 && (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                      {selectedChartData.series.map((series) => (
+                        <th key={series.id}>
+                          <div className="series-header">
+                            <span 
+                              className="series-color" 
+                              style={{ backgroundColor: series.color }}
+                            />
+                            {series.name}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedChartData.data && selectedChartData.data.map((point, index) => (
+                      <tr key={point.id || index}>
+                        <td>{point.label || `Category ${index + 1}`}</td>
+                        {selectedChartData.series.map((series) => (
+                          <td key={`${point.id || index}-${series.id}`}>
+                            {point.values?.[series.id] ?? 0}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+                const primaryColor =
+                  normalized.series[0]?.color ||
+                  element.accentColor ||
+                  '#1a73e8';
+                return (
+                  <div
+                    className="chart-element slideshow-chart-element"
+                    style={{
+                      left: `${(element.x / 800) * 100}%`,
+                      top: `${(element.y / 600) * 100}%`,
+                      width: `${(element.width / 800) * 100}%`,
+                      height: `${(element.height / 600) * 100}%`,
+                      background:
+                        element.background || hexToRgba(primaryColor, 0.12),
+                      color: primaryColor,
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handleChartClick(chartForRender)}
+                  >
+                    <div className="chart-placeholder">
+                      {renderChartVisual(chartForRender)}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart Data Modal */}
+      {selectedChartData && (
+        <div className="chart-data-modal" onClick={() => setSelectedChartData(null)}>
+          <div className="chart-data-content" onClick={(e) => e.stopPropagation()}>
+            <div className="chart-data-header">
+              <h3>{selectedChartData.chartType?.toUpperCase()} Chart Data</h3>
+              <button
+                className="close-button"
+                onClick={() => setSelectedChartData(null)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="chart-data-body">
+              {selectedChartData.data && selectedChartData.data.length > 0 ? (
+                <div className="chart-modal-table">
+                  <div
+                    className="chart-modal-row chart-modal-header"
+                    style={{
+                      '--series-count':
+                        (selectedChartData.series?.length || 1)
+                    }}
+                  >
+                    <span>Category</span>
+                    {(selectedChartData.series || []).map((seriesItem) => (
+                      <span key={seriesItem.id}>{seriesItem.name}</span>
+                    ))}
+                  </div>
+                  <div className="chart-modal-body">
+                    {selectedChartData.data.map((point, idx) => (
+                      <div
+                        key={point.id || idx}
+                        className="chart-modal-row"
+                        style={{
+                          '--series-count':
+                            (selectedChartData.series?.length || 1)
+                        }}
+                      >
+                        <span className="chart-modal-cell chart-modal-category">
+                          {point.label || `Item ${idx + 1}`}
+                        </span>
+                        {(selectedChartData.series || []).map((seriesItem) => (
+                          <span
+                            key={`${point.id || idx}-${seriesItem.id}`}
+                            className="chart-modal-cell"
+                          >
+                            {point.values?.[seriesItem.id] ?? 0}
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="no-data">No data available for this chart</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="slideshow-footer">
+        <div className="keyboard-shortcuts">
+          <span>Use arrow keys or spacebar to navigate - F for fullscreen - ESC to exit</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Slideshow;

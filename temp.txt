@@ -1,0 +1,281 @@
+import React, { useState } from 'react';
+import './SlideEditor.css';
+
+const SlideEditor = ({ slide, updateSlide, activeTab, insertAction, onInsertActionHandled }) => {
+  const [selectedElement, setSelectedElement] = useState(null);
+  const [isAddingText, setIsAddingText] = useState(false);
+  const [isAddingShape, setIsAddingShape] = useState(false);
+
+  const addTextBox = (x, y) => {
+    const newTextBox = {
+      id: Date.now(),
+      type: 'text',
+      text: 'Click to edit text',
+      x: x - 100,
+      y: y - 20,
+      width: 200,
+      height: 40,
+      fontSize: 16,
+      fontFamily: 'Arial',
+      color: '#000000',
+      bold: false,
+      italic: false,
+      underline: false
+    };
+    
+    const updatedSlide = {
+      ...slide,
+      content: [...slide.content, newTextBox]
+    };
+    updateSlide(updatedSlide);
+    setIsAddingText(false);
+  };
+
+  const addShape = (x, y) => {
+    const newShape = {
+      id: Date.now(),
+      type: 'shape',
+      shape: 'rectangle',
+      x: x - 50,
+      y: y - 25,
+      width: 100,
+      height: 50,
+      color: '#cccccc',
+      borderColor: '#000000',
+      borderWidth: 2
+    };
+    
+    const updatedSlide = {
+      ...slide,
+      content: [...slide.content, newShape]
+    };
+    updateSlide(updatedSlide);
+    setIsAddingShape(false);
+  };
+
+  const updateElement = (elementId, updates) => {
+    const updatedContent = slide.content.map(item =>
+      item.id === elementId ? { ...item, ...updates } : item
+    );
+    updateSlide({ ...slide, content: updatedContent });
+  };
+
+  const deleteElement = (elementId) => {
+    const updatedContent = slide.content.filter(item => item.id !== elementId);
+    updateSlide({ ...slide, content: updatedContent });
+    setSelectedElement(null);
+  };
+
+  const handleCanvasClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (isAddingText) {
+      addTextBox(x, y);
+    } else if (isAddingShape) {
+      addShape(x, y);
+    } else {
+      setSelectedElement(null);
+    }
+  };
+
+  const handleElementClick = (e, element) => {
+    e.stopPropagation();
+    setSelectedElement(element);
+  };
+
+  // React to toolbar insert menu selections
+  React.useEffect(() => {
+    if (!insertAction) {
+      return;
+    }
+
+    switch (insertAction) {
+      case 'addText':
+        setIsAddingText(true);
+        setIsAddingShape(false);
+        break;
+      case 'addShape':
+        setIsAddingShape(true);
+        setIsAddingText(false);
+        break;
+      default:
+        break;
+    }
+
+    if (typeof onInsertActionHandled === 'function') {
+      onInsertActionHandled();
+    }
+  }, [insertAction, onInsertActionHandled]);
+
+  return (
+    <div className="slide-editor">
+      <div className="slide-editor-header">
+        <h3>{slide.title}</h3>
+        <div className="editor-controls">
+          <button 
+            className={`control-btn ${isAddingText ? 'active' : ''}`}
+            onClick={() => {
+              setIsAddingText(!isAddingText);
+              setIsAddingShape(false);
+            }}
+          >
+            📝 Add Text
+          </button>
+          <button 
+            className={`control-btn ${isAddingShape ? 'active' : ''}`}
+            onClick={() => {
+              setIsAddingShape(!isAddingShape);
+              setIsAddingText(false);
+            }}
+          >
+            ⬜ Add Shape
+          </button>
+        </div>
+      </div>
+      
+      <div 
+        className="slide-canvas"
+        style={{ backgroundColor: slide.background }}
+        onClick={handleCanvasClick}
+      >
+        {slide.content.map((element) => (
+          <div key={element.id}>
+            {element.type === 'text' && (
+              <div
+                className={`text-element ${selectedElement?.id === element.id ? 'selected' : ''}`}
+                style={{
+                  left: element.x,
+                  top: element.y,
+                  width: element.width,
+                  height: element.height,
+                  fontSize: element.fontSize,
+                  fontFamily: element.fontFamily,
+                  color: element.color,
+                  fontWeight: element.bold ? 'bold' : 'normal',
+                  fontStyle: element.italic ? 'italic' : 'normal',
+                  textDecoration: element.underline ? 'underline' : 'none'
+                }}
+                onClick={(e) => handleElementClick(e, element)}
+                contentEditable
+                suppressContentEditableWarning={true}
+                onBlur={(e) => updateElement(element.id, { text: e.target.textContent })}
+              >
+                {element.text}
+              </div>
+            )}
+            
+            {element.type === 'shape' && (
+              <div
+                className={`shape-element ${selectedElement?.id === element.id ? 'selected' : ''}`}
+                style={{
+                  left: element.x,
+                  top: element.y,
+                  width: element.width,
+                  height: element.height,
+                  backgroundColor: element.color,
+                  border: `${element.borderWidth}px solid ${element.borderColor}`,
+                  borderRadius: element.shape === 'circle' ? '50%' : '0'
+                }}
+                onClick={(e) => handleElementClick(e, element)}
+              />
+            )}
+          </div>
+        ))}
+        
+        {(isAddingText || isAddingShape) && (
+          <div className="canvas-instruction">
+            Click anywhere to add {isAddingText ? 'text' : 'shape'}
+          </div>
+        )}
+      </div>
+
+      {selectedElement && (
+        <div className="element-properties">
+          <h4>Properties</h4>
+          <button 
+            className="delete-btn"
+            onClick={() => deleteElement(selectedElement.id)}
+          >
+            🗑️ Delete
+          </button>
+          
+          {selectedElement.type === 'text' && (
+            <div className="text-properties">
+              <label>
+                Font Size:
+                <input
+                  type="number"
+                  value={selectedElement.fontSize}
+                  onChange={(e) => updateElement(selectedElement.id, { fontSize: parseInt(e.target.value) })}
+                />
+              </label>
+              <label>
+                Color:
+                <input
+                  type="color"
+                  value={selectedElement.color}
+                  onChange={(e) => updateElement(selectedElement.id, { color: e.target.value })}
+                />
+              </label>
+              <div className="text-formatting">
+                <button
+                  className={selectedElement.bold ? 'active' : ''}
+                  onClick={() => updateElement(selectedElement.id, { bold: !selectedElement.bold })}
+                >
+                  B
+                </button>
+                <button
+                  className={selectedElement.italic ? 'active' : ''}
+                  onClick={() => updateElement(selectedElement.id, { italic: !selectedElement.italic })}
+                >
+                  I
+                </button>
+                <button
+                  className={selectedElement.underline ? 'active' : ''}
+                  onClick={() => updateElement(selectedElement.id, { underline: !selectedElement.underline })}
+                >
+                  U
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {selectedElement.type === 'shape' && (
+            <div className="shape-properties">
+              <label>
+                Fill Color:
+                <input
+                  type="color"
+                  value={selectedElement.color}
+                  onChange={(e) => updateElement(selectedElement.id, { color: e.target.value })}
+                />
+              </label>
+              <label>
+                Border Color:
+                <input
+                  type="color"
+                  value={selectedElement.borderColor}
+                  onChange={(e) => updateElement(selectedElement.id, { borderColor: e.target.value })}
+                />
+              </label>
+              <label>
+                Shape:
+                <select
+                  value={selectedElement.shape}
+                  onChange={(e) => updateElement(selectedElement.id, { shape: e.target.value })}
+                >
+                  <option value="rectangle">Rectangle</option>
+                  <option value="circle">Circle</option>
+                </select>
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SlideEditor;

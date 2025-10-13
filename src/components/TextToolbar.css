@@ -1,0 +1,213 @@
+.text-floating-toolbar {
+  position: absolute;
+  z-index: 1200;
+}
+
+.text-toolbar-shell {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #141414 0%, #1f1f1f 100%);
+  border-radius: 999px;
+  box-shadow: 0 22px 45px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #f5f5f5;
+  backdrop-filter: blur(16px);
+  max-width: 980px;
+  font-family: 'Inter', sans-serif;
+}
+
+.text-toolbar-shell .toolbar-divider {
+  width: 1px;
+  height: 30px;
+  background: rgba(148, 163, 184, 0.25);
+}
+
+.toolbar-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-cluster.presets .preset-btn {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f5f5;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.toolbar-cluster.presets .preset-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.toolbar-cluster.presets .preset-btn.active {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85), rgba(200, 200, 200, 0.85));
+  color: #111111;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.toolbar-cluster.size-family {
+  gap: 6px;
+}
+
+.size-input {
+  width: 60px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(71, 85, 105, 0.35);
+  background: rgba(15, 23, 42, 0.8);
+  color: #f8fafc;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.size-input:focus {
+  outline: none;
+  border-color: #d0d0d0;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+}
+
+.family-select {
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(71, 85, 105, 0.35);
+  background: rgba(15, 23, 42, 0.8);
+  color: #f8fafc;
+  padding: 0 14px;
+  min-width: 160px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.family-select:focus {
+  outline: none;
+  border-color: #d0d0d0;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+}
+
+.color-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.color-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(248, 250, 252, 0.7);
+  cursor: pointer;
+  background: #d0d0d0;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.color-toggle:hover {
+  transform: scale(1.05);
+  border-color: #ffffff;
+}
+
+.color-popover {
+  position: absolute;
+  top: -52px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 520px;
+  padding: 8px 16px;
+  background: rgba(11, 15, 24, 0.95);
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 16px 28px rgba(7, 11, 20, 0.55);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toolbar-cluster.color-swatches {
+  gap: 10px;
+}
+
+.color-chip {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.color-chip:hover {
+  transform: scale(1.1);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.color-chip.active {
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.toolbar-cluster.style-toggles button {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
+  color: #f5f5f5;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 15px;
+  box-shadow: inset 0 -1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.style-toggles button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.style-toggles button.active {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.6);
+  color: #111111;
+  box-shadow: 0 8px 21px rgba(0, 0, 0, 0.3);
+}
+
+.toolbar-delete {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 120, 120, 0.18);
+  color: #f2f2f2;
+  padding: 6px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 4px;
+}
+
+.toolbar-delete:hover {
+  background: rgba(255, 120, 120, 0.3);
+  color: #e8e8e8;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 640px) {
+  .text-toolbar-shell {
+    flex-wrap: wrap;
+    gap: 12px;
+    max-width: 420px;
+  }
+  .text-toolbar-shell .toolbar-divider {
+    display: none;
+  }
+}
+
