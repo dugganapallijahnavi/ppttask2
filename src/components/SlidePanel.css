@@ -1,5 +1,6 @@
 .slide-panel {
   width: 320px;
+  flex: 0 0 320px;
   background: linear-gradient(180deg, #111111, #1b1b1b);
   border-right: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
