@@ -773,6 +773,7 @@ body {
     width: 100%;
     height: auto;
     min-height: auto;
+    flex: none;
   }
   .main-content {
     order: 1;
@@ -782,6 +783,7 @@ body {
   .slide-editor {
     width: 100%;
     padding: 16px;
+    order: 1;
   }
   .slide-container {
     padding: 12px;

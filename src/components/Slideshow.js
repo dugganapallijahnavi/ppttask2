@@ -249,6 +249,10 @@ const Slideshow = ({ slides, currentSlide, setCurrentSlide, onExit }) => {
   const [selectedChartData, setSelectedChartData] = useState(null);
   const stageRef = useRef(null);
   const [scale, setScale] = useState(1);
+  const [scaledDimensions, setScaledDimensions] = useState({
+    width: SLIDE_BASE_WIDTH,
+    height: SLIDE_BASE_HEIGHT
+  });
 
   const handleChartClick = (chart) => {
     if (chart.chartType === 'pie') return;
@@ -323,7 +327,12 @@ const Slideshow = ({ slides, currentSlide, setCurrentSlide, onExit }) => {
         clientWidth / SLIDE_BASE_WIDTH,
         clientHeight / SLIDE_BASE_HEIGHT
       );
-      setScale(nextScale > 0 ? nextScale : 1);
+      const safeScale = nextScale > 0 ? nextScale : 1;
+      setScale(safeScale);
+      setScaledDimensions({
+        width: SLIDE_BASE_WIDTH * safeScale,
+        height: SLIDE_BASE_HEIGHT * safeScale
+      });
     };
 
     updateScale();
@@ -360,129 +369,137 @@ const Slideshow = ({ slides, currentSlide, setCurrentSlide, onExit }) => {
 
       <div className="slideshow-stage" ref={stageRef}>
         <div
-          className="slideshow-slide"
+          className="slideshow-slide-wrapper"
           style={{
-            backgroundColor: slide.background || '#111827',
-            width: SLIDE_BASE_WIDTH,
-            height: SLIDE_BASE_HEIGHT,
-            transform: `scale(${scale})`,
-            transformOrigin: 'center center'
+            width: `${scaledDimensions.width}px`,
+            height: `${scaledDimensions.height}px`
           }}
         >
-          <div className="slide-content-container">
-            {slide.content && slide.content.map((element) => (
-              <div
-                key={element.id}
-                style={{
-                  position: 'absolute',
-                  left: `${element.x || 0}px`,
-                  top: `${element.y || 0}px`,
-                  width: `${element.width || 200}px`,
-                  height: `${element.height || 100}px`,
-                  zIndex: element.zIndex || 1
-                }}
-              >
-                {element.type === 'text' && (
-                  <div
-                    className="slideshow-text-element"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      fontSize: `${element.fontSize || 16}px`,
-                      fontFamily: element.fontFamily || 'Arial, sans-serif',
-                      color: element.color || '#ffffff',
-                      fontWeight: element.fontWeight || 'normal',
-                      fontStyle: element.italic ? 'italic' : 'normal',
-                      textDecoration: element.underline ? 'underline' : 'none',
-                      padding: 0,
-                      boxSizing: 'border-box',
-                      wordBreak: 'break-word',
-                      overflow: 'hidden',
-                      textAlign: element.textAlign || 'left',
-                      lineHeight: 1.4,
-                      backgroundColor: element.backgroundColor
-                        ? `rgba(${hexToRgba(element.backgroundColor, 0.8)})`
-                        : 'transparent',
-                      borderRadius: element.borderRadius ? `${element.borderRadius}px` : 0,
-                      textShadow: 'none'
-                    }}
-                    dangerouslySetInnerHTML={{ __html: element.text || '' }}
-                  />
-                )}
-
-                {element.type === 'shape' && (
-                  <div
-                    className="slideshow-shape-element"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      backgroundColor: element.backgroundColor || '#000000',
-                      borderRadius: element.shape === 'circle' ? '50%' : '4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: element.color || '#ffffff',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      padding: '8px',
-                      boxSizing: 'border-box',
-                      textAlign: 'center',
-                      border: element.borderWidth
-                        ? `${element.borderWidth}px solid ${element.borderColor || 'transparent'}`
-                        : 'none'
-                    }}
-                  >
-                    {element.text || ''}
-                  </div>
-                )}
-
-                {element.type === 'chart' && (
-                  <div
-                    className="slideshow-chart-element"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      backgroundColor: element.background || '#ffffff',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      boxSizing: 'border-box',
-                      cursor: 'pointer',
-                      transition: 'box-shadow 0.2s'
-                    }}
-                    onClick={() => handleChartClick(element)}
-                  >
-                    {renderChartVisual(element)}
-                  </div>
-                )}
-
-                {element.type === 'image' && element.src && (
-                  <div
-                    className="slideshow-image-element"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: 'transparent',
-                      overflow: 'hidden',
-                      borderRadius: '4px'
-                    }}
-                  >
-                    <img
-                      src={element.src}
-                      alt={element.alt || ''}
+          <div
+            className="slideshow-slide"
+            style={{
+              backgroundColor: slide.background || '#111827',
+              width: SLIDE_BASE_WIDTH,
+              height: SLIDE_BASE_HEIGHT,
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left'
+            }}
+          >
+            <div className="slide-content-container">
+              {slide.content?.map((element) => (
+                <div
+                  key={element.id}
+                  style={{
+                    position: 'absolute',
+                    left: `${element.x || 0}px`,
+                    top: `${element.y || 0}px`,
+                    width: `${element.width || 200}px`,
+                    height: `${element.height || 100}px`,
+                    zIndex: element.zIndex || 1
+                  }}
+                >
+                  {element.type === 'text' && (
+                    <div
+                      className="slideshow-text-element"
                       style={{
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                        objectFit: 'contain',
-                        display: 'block'
+                        width: '100%',
+                        height: '100%',
+                        fontSize: `${element.fontSize || 16}px`,
+                        fontFamily: element.fontFamily || 'Arial, sans-serif',
+                        color: element.color || '#ffffff',
+                        fontWeight: element.fontWeight || 'normal',
+                        fontStyle: element.italic ? 'italic' : 'normal',
+                        textDecoration: element.underline ? 'underline' : 'none',
+                        padding: 0,
+                        boxSizing: 'border-box',
+                        wordBreak: 'break-word',
+                        overflow: 'hidden',
+                        textAlign: element.textAlign || 'left',
+                        lineHeight: 1.4,
+                        backgroundColor: element.backgroundColor
+                          ? `rgba(${hexToRgba(element.backgroundColor, 0.8)})`
+                          : 'transparent',
+                        borderRadius: element.borderRadius ? `${element.borderRadius}px` : 0,
+                        textShadow: 'none'
                       }}
+                      dangerouslySetInnerHTML={{ __html: element.text || '' }}
                     />
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+
+                  {element.type === 'shape' && (
+                    <div
+                      className="slideshow-shape-element"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: element.backgroundColor || '#000000',
+                        borderRadius: element.shape === 'circle' ? '50%' : '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: element.color || '#ffffff',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        padding: '8px',
+                        boxSizing: 'border-box',
+                        textAlign: 'center',
+                        border: element.borderWidth
+                          ? `${element.borderWidth}px solid ${element.borderColor || 'transparent'}`
+                          : 'none'
+                      }}
+                    >
+                      {element.text || ''}
+                    </div>
+                  )}
+
+                  {element.type === 'chart' && (
+                    <div
+                      className="slideshow-chart-element"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: element.background || '#ffffff',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        boxSizing: 'border-box',
+                        cursor: 'pointer',
+                        transition: 'box-shadow 0.2s'
+                      }}
+                      onClick={() => handleChartClick(element)}
+                    >
+                      {renderChartVisual(element)}
+                    </div>
+                  )}
+
+                  {element.type === 'image' && element.src && (
+                    <div
+                      className="slideshow-image-element"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'transparent',
+                        overflow: 'hidden',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      <img
+                        src={element.src}
+                        alt={element.alt || ''}
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain',
+                          display: 'block'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
