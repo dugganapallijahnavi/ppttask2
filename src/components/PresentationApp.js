@@ -3,8 +3,8 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import './PresentationApp.css';
 import ChartComponent from './ChartComponent';
 import ChartDataEditor from './ChartDataEditor';
-import TextToolbar from './TextToolbar';
 import ImageComponent from './ImageComponent';
+import RichTextEditor from './RichTextEditor';
 
 import SlidePanel from './SlidePanel';
 import EnhancedToolbar from './EnhancedToolbar';
@@ -494,6 +494,17 @@ const PresentationApp = () => {
     return currentSlide.background.color || DEFAULT_BACKGROUND;
   }, [currentSlide]);
 
+  const hoveredTextElement = useMemo(() => {
+    if (!hoveredElement) {
+      return null;
+    }
+    return (
+      currentSlide.content?.find(
+        (item) => item.id === hoveredElement && item.type === 'text'
+      ) || null
+    );
+  }, [currentSlide, hoveredElement]);
+
   const handleToggleKeepInsert = (enabled) => {
     setKeepInsertEnabled(enabled);
     if (!enabled) {
@@ -775,7 +786,8 @@ const PresentationApp = () => {
         fontSize: 20,
         color: defaultTextColor,
         fontFamily: 'Playfair Display',
-        text: 'Click to edit text',
+        text: '<p>Click to edit text</p>',
+        plainText: 'Click to edit text',
         textAlign: 'left',
         fontWeight: 700,
         bold: true,
@@ -841,7 +853,8 @@ const PresentationApp = () => {
           fontSize: 20,
           color: defaultTextColor,
           fontFamily: 'Playfair Display, serif',
-          text: 'Click to edit text',
+          text: '<p>Click to edit text</p>',
+          plainText: 'Click to edit text',
           textAlign: 'left',
           fontWeight: 700,
           bold: true,
@@ -1131,41 +1144,28 @@ const PresentationApp = () => {
                     const renderContent = () => {
                       if (element.type === 'text') {
                         return (
-                          <div
-                            className="text-element-content"
-                            contentEditable
-                            suppressContentEditableWarning
-                            data-text-editable="true"
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              fontSize: `${element.fontSize}px`,
-                              color: element.color,
-                              fontFamily: element.fontFamily,
-                              textAlign: element.textAlign || 'left',
-                              fontWeight: element.fontWeight || (element.bold ? 'bold' : 'normal'),
-                              fontStyle: element.italic ? 'italic' : 'normal',
-                              textDecoration: element.underline ? 'underline' : 'none',
-                              lineHeight: 1.2,
-                              whiteSpace: 'pre-wrap',
-                              padding: '8px 12px',
-                              borderRadius: '8px',
-                              minHeight: '40px',
-                              outline: 'none'
+                          <RichTextEditor
+                            element={element}
+                            isSelected={isSelected}
+                            onContentChange={(html, plainText) => {
+                              updateElement(element.id, { text: html, plainText });
                             }}
-                            onBlur={(e) => updateElement(element.id, { text: e.target.innerText })}
-                          >
-                            {element.text}
-                          </div>
+                            onFocus={() => {
+                              setSelectedElement(element);
+                              setHoveredElement(element.id);
+                            }}
+                            onBlur={() => {
+                              setHoveredElement((current) => (current === element.id ? null : current));
+                            }}
+                          />
                         );
                       }
 
                       if (element.type === 'chart') {
                         const chartData = element.chartData || createDefaultChartData('bar');
-                        const chartDimensions = CHART_DIMENSIONS[element.chartData?.type || element.chartType || 'bar'] || {
-                          width: element.width,
-                          height: element.height
-                        };
+                        const presetDimensions = CHART_DIMENSIONS[element.chartData?.type || element.chartType || 'bar'] || {};
+                        const chartWidth = element.width || presetDimensions.width || 360;
+                        const chartHeight = element.height || presetDimensions.height || 240;
 
                         return (
                           <div className="chart-element-content">
@@ -1187,8 +1187,8 @@ const PresentationApp = () => {
                                 }
                               }}
                               style={{
-                                width: chartDimensions.width || element.width,
-                                height: chartDimensions.height || element.height
+                                width: `${chartWidth}px`,
+                                height: `${chartHeight}px`
                               }}
                             />
                           </div>
@@ -1338,16 +1338,7 @@ const PresentationApp = () => {
                     </div>
                   )}
 
-                  {/* Text Toolbar */}
-                  {hoveredElement && (
-                    <TextToolbar
-                      element={currentSlide.content?.find((el) => el.id === hoveredElement)}
-                      onUpdate={(updatedElement) => updateElement(updatedElement.id, updatedElement)}
-                      onDelete={deleteElement}
-                      position={toolbarPosition}
-                      isVisible
-                    />
-                  )}
+                  {/* Text toolbar removed in favor of TipTap bubble menu */}
                 </div>
                 <input
                   type="file"
