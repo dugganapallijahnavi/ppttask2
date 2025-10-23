@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Styled Text Container - Plain HTML/CSS Examples</title>
+  <style>
+    /* ============================================
+       RESET & BASE STYLES
+       ============================================ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 2rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #718096;
+      margin-bottom: 3rem;
+      font-size: 1.125rem;
+    }
+
+    .section {
+      margin-bottom: 3rem;
+    }
+
+    .section-title {
+      font-size: 1.75rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    .section-description {
+      color: #718096;
+      margin-bottom: 1.5rem;
+      font-size: 1rem;
+    }
+
+    .examples-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-top: 1.5rem;
+    }
+
+    .example-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .example-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #4a5568;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ============================================
+       TEXT CONTAINER BASE
+       ============================================ */
+    .text-box {
+      /* Box Model - border-box ensures padding is included in width */
+      box-sizing: border-box;
+      max-width: 22rem;
+      padding: 0.875rem 1rem;
+      
+      /* Visual Styling */
+      background-color: #ffffff;
+      border: 1.5px solid #9DB7FF;
+      border-radius: 0.8rem;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+      
+      /* Typography */
+      font-family: 'Georgia', serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      line-height: 1.4;
+      color: #1a202c;
+      text-align: center;
+      
+      /* Text Wrapping Properties - CRITICAL for proper containment */
+      white-space: normal;           /* Allows text to wrap onto multiple lines */
+      overflow-wrap: break-word;     /* Breaks long words at arbitrary points if needed */
+      word-wrap: break-word;         /* Legacy property, same as overflow-wrap */
+      word-break: normal;            /* Prevents breaking words mid-character */
+      hyphens: auto;                 /* Adds hyphens when breaking words */
+      
+      /* Transitions */
+      transition: all 0.3s ease;
+    }
+
+    .text-box:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+      border-color: #7B9EFF;
+      transform: translateY(-2px);
+    }
+
+    /* ============================================
+       MODE 1: WRAP (Natural wrapping, no truncation)
+       ============================================ */
+    .text-box--wrap {
+      min-height: 3rem;
+      height: auto;
+      overflow: visible;
+    }
+
+    /* ============================================
+       MODE 2: ELLIPSIS (Truncate with ...)
+       ============================================ */
+    .text-box--ellipsis {
+      height: auto;
+      max-height: 6rem;
+      overflow: hidden;
+      
+      /* Multi-line ellipsis using line-clamp */
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;  /* Show 3 lines then truncate */
+      line-clamp: 3;
+      text-overflow: ellipsis;
+    }
+
+    .text-box--ellipsis-2 {
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      max-height: 4.5rem;
+    }
+
+    /* ============================================
+       MODE 3: SCROLLABLE (Scroll if overflow)
+       ============================================ */
+    .text-box--scroll {
+      max-height: 6rem;
+      overflow-y: auto;
+      overflow-x: hidden;
+      
+      /* Custom scrollbar styling */
+      scrollbar-width: thin;
+      scrollbar-color: #9DB7FF #f1f5f9;
+    }
+
+    .text-box--scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .text-box--scroll::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 3px;
+    }
+
+    .text-box--scroll::-webkit-scrollbar-thumb {
+      background: #9DB7FF;
+      border-radius: 3px;
+    }
+
+    .text-box--scroll::-webkit-scrollbar-thumb:hover {
+      background: #7B9EFF;
+    }
+
+    /* ============================================
+       THEME VARIATIONS
+       ============================================ */
+    .text-box--purple {
+      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+      border-color: #a78bfa;
+      color: #5b21b6;
+      box-shadow: 0 4px 14px rgba(167, 139, 250, 0.15);
+    }
+
+    .text-box--gradient {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-color: #667eea;
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 14px rgba(102, 126, 234, 0.3);
+    }
+
+    .text-box--minimal {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .text-box--bold {
+      background: #1a202c;
+      border-color: #2d3748;
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    /* ============================================
+       SIZE VARIATIONS
+       ============================================ */
+    .text-box--small {
+      max-width: 16rem;
+      padding: 0.625rem 0.75rem;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+    }
+
+    .text-box--large {
+      max-width: 28rem;
+      padding: 1.25rem 1.5rem;
+      font-size: 1.5rem;
+      border-radius: 1rem;
+    }
+
+    /* ============================================
+       RESPONSIVE DESIGN
+       ============================================ */
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+      }
+
+      .container {
+        padding: 1.5rem;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .text-box {
+        max-width: 100%;
+        font-size: 1.125rem;
+      }
+
+      .examples-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+    }
+
+    /* ============================================
+       ACCESSIBILITY
+       ============================================ */
+    .text-box:focus {
+      outline: 2px solid #4299e1;
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .text-box {
+        transition: none;
+        transform: none !important;
+      }
+    }
+
+    @media (prefers-contrast: high) {
+      .text-box {
+        border-width: 2px;
+        border-color: #000000;
+      }
+    }
+
+    /* ============================================
+       CODE DISPLAY
+       ============================================ */
+    .code-block {
+      background: #1a202c;
+      color: #e2e8f0;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      margin-top: 1rem;
+      line-height: 1.6;
+    }
+
+    .code-block code {
+      color: #68d391;
+    }
+
+    .property {
+      color: #90cdf4;
+    }
+
+    .value {
+      color: #fbd38d;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📦 Styled Text Container</h1>
+    <p class="subtitle">Production-ready subtitle boxes with perfect text containment</p>
+
+    <!-- ============================================
+         SECTION 1: WRAP MODE
+         ============================================ -->
+    <section class="section">
+      <h2 class="section-title">1. Wrap Mode (Default)</h2>
+      <p class="section-description">
+        Text wraps naturally onto multiple lines. No truncation. Perfect for dynamic content.
+      </p>
+
+      <div class="examples-grid">
+        <div class="example-item">
+          <span class="example-label">Short Text</span>
+          <div class="text-box text-box--wrap">
+            Beautiful subtitle
+          </div>
+        </div>
+
+        <div class="example-item">
+          <span class="example-label">Medium Text</span>
+          <div class="text-box text-box--wrap">
+            This is a medium length subtitle that demonstrates wrapping
+          </div>
+        </div>
+
+        <div class="example-item">
+          <span class="example-label">Long Text</span>
+          <div class="text-box text-box--wrap">
+            This is a very long subtitle text that will demonstrate how the container handles extensive content with proper word wrapping and no overflow issues
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">
+<span class="property">white-space</span>: <span class="value">normal</span>;        <span style="color: #a0aec0;">/* Allow wrapping */</span>
+<span class="property">overflow-wrap</span>: <span class="value">break-word</span>;  <span style="color: #a0aec0;">/* Break long words */</span>
+<span class="property">word-break</span>: <span class="value">normal</span>;        <span style="color: #a0aec0;">/* Don't break mid-character */</span>
+<span class="property">hyphens</span>: <span class="value">auto</span>;             <span style="color: #a0aec0;">/* Add hyphens when needed */</span>
+      </div>
+    </section>
+
+    <!-- ============================================
+         SECTION 2: ELLIPSIS MODE
+         ============================================ -->
+    <section class="section">
+      <h2 class="section-title">2. Ellipsis Mode</h2>
+      <p class="section-description">
+        Truncates text with "..." after a specified number of lines. Great for previews.
+      </p>
+
+      <div class="examples-grid">
+        <div class="example-item">
+          <span class="example-label">2 Lines Max</span>
+          <div class="text-box text-box--ellipsis text-box--ellipsis-2">
+            This is a very long subtitle text that will be truncated after two lines with an ellipsis to indicate there's more content available
+          </div>
+        </div>
+
+        <div class="example-item">
+          <span class="example-label">3 Lines Max</span>
+          <div class="text-box text-box--ellipsis">
+            This is a very long subtitle text that will be truncated after three lines with an ellipsis to indicate there's more content available to read
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">
+<span class="property">display</span>: <span class="value">-webkit-box</span>;
+<span class="property">-webkit-box-orient</span>: <span class="value">vertical</span>;
+<span class="property">-webkit-line-clamp</span>: <span class="value">3</span>;      <span style="color: #a0aec0;">/* Number of lines */</span>
+<span class="property">overflow</span>: <span class="value">hidden</span>;
+<span class="property">text-overflow</span>: <span class="value">ellipsis</span>;
+      </div>
+    </section>
+
+    <!-- ============================================
+         SECTION 3: SCROLLABLE MODE
+         ============================================ -->
+    <section class="section">
+      <h2 class="section-title">3. Scrollable Mode</h2>
+      <p class="section-description">
+        Fixed height with scrolling for overflow. All content remains accessible.
+      </p>
+
+      <div class="examples-grid">
+        <div class="example-item">
+          <span class="example-label">Scroll to Read More</span>
+          <div class="text-box text-box--scroll">
+            This is a very long subtitle text that demonstrates scrolling behavior. When content exceeds the maximum height, users can scroll to read the full text. This ensures all content remains accessible while maintaining a consistent layout. The scrollbar is styled to match the design system.
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">
+<span class="property">max-height</span>: <span class="value">6rem</span>;
+<span class="property">overflow-y</span>: <span class="value">auto</span>;
+<span class="property">overflow-x</span>: <span class="value">hidden</span>;
+<span class="property">scrollbar-width</span>: <span class="value">thin</span>;     <span style="color: #a0aec0;">/* Firefox */</span>
+      </div>
+    </section>
+
+    <!-- ============================================
+         SECTION 4: THEME VARIATIONS
+         ============================================ -->
+    <section class="section">
+      <h2 class="section-title">4. Theme Variations</h2>
+      <p class="section-description">
+        Different visual styles while maintaining text containment behavior.
+      </p>
+
+      <div class="examples-grid">
+        <div class="example-item">
+          <span class="example-label">Purple Theme</span>
+          <div class="text-box text-box--wrap text-box--purple">
+            Elegant purple gradient with perfect text wrapping
+          </div>
+        </div>
+
+        <div class="example-item">
+          <span class="example-label">Gradient Theme</span>
+          <div class="text-box text-box--wrap text-box--gradient">
+            Bold gradient background with white text
+          </div>
+        </div>
+
+        <div class="example-item">
+          <span class="example-label">Minimal Theme</span>
+          <div class="text-box text-box--wrap text-box--minimal">
+            Clean minimal design with subtle styling
+          </div>
+        </div>
+
+        <div class="example-item">
+          <span class="example-label">Bold Theme</span>
+          <div class="text-box text-box--wrap text-box--bold">
+            Dark bold theme for high impact
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         SECTION 5: SIZE VARIATIONS
+         ============================================ -->
+    <section class="section">
+      <h2 class="section-title">5. Size Variations</h2>
+      <p class="section-description">
+        Different sizes for various use cases, all with proper text containment.
+      </p>
+
+      <div class="examples-grid">
+        <div class="example-item">
+          <span class="example-label">Small</span>
+          <div class="text-box text-box--wrap text-box--small">
+            Compact subtitle for tight spaces
+          </div>
+        </div>
+
+        <div class="example-item">
+          <span class="example-label">Default</span>
+          <div class="text-box text-box--wrap">
+            Standard size for most use cases
+          </div>
+        </div>
+
+        <div class="example-item">
+          <span class="example-label">Large</span>
+          <div class="text-box text-box--wrap text-box--large">
+            Large subtitle for hero sections
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         KEY CSS PROPERTIES EXPLANATION
+         ============================================ -->
+    <section class="section">
+      <h2 class="section-title">📚 Key CSS Properties Explained</h2>
+      
+      <div style="background: #f7fafc; padding: 1.5rem; border-radius: 0.5rem; margin-top: 1rem;">
+        <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; color: #2d3748;">
+          Essential Properties for Text Containment:
+        </h3>
+        
+        <ul style="list-style: none; padding: 0;">
+          <li style="margin-bottom: 1rem; padding-left: 1.5rem; position: relative;">
+            <strong style="color: #2b6cb0;">box-sizing: border-box;</strong>
+            <p style="color: #4a5568; margin-top: 0.25rem;">
+              Ensures padding is included in total width/height calculations, preventing unexpected overflow.
+            </p>
+          </li>
+          
+          <li style="margin-bottom: 1rem; padding-left: 1.5rem; position: relative;">
+            <strong style="color: #2b6cb0;">white-space: normal;</strong>
+            <p style="color: #4a5568; margin-top: 0.25rem;">
+              Allows text to wrap onto multiple lines instead of extending horizontally.
+            </p>
+          </li>
+          
+          <li style="margin-bottom: 1rem; padding-left: 1.5rem; position: relative;">
+            <strong style="color: #2b6cb0;">overflow-wrap: break-word;</strong>
+            <p style="color: #4a5568; margin-top: 0.25rem;">
+              Breaks long words at arbitrary points if they would overflow the container.
+            </p>
+          </li>
+          
+          <li style="margin-bottom: 1rem; padding-left: 1.5rem; position: relative;">
+            <strong style="color: #2b6cb0;">word-break: normal;</strong>
+            <p style="color: #4a5568; margin-top: 0.25rem;">
+              Prevents breaking words mid-character (e.g., "supporti ng"). Use with overflow-wrap for best results.
+            </p>
+          </li>
+          
+          <li style="margin-bottom: 1rem; padding-left: 1.5rem; position: relative;">
+            <strong style="color: #2b6cb0;">hyphens: auto;</strong>
+            <p style="color: #4a5568; margin-top: 0.25rem;">
+              Adds hyphens when breaking words, improving readability. Requires lang attribute on HTML element.
+            </p>
+          </li>
+          
+          <li style="margin-bottom: 1rem; padding-left: 1.5rem; position: relative;">
+            <strong style="color: #2b6cb0;">line-height: 1.4;</strong>
+            <p style="color: #4a5568; margin-top: 0.25rem;">
+              Provides comfortable spacing between lines for better readability.
+            </p>
+          </li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Optional: Auto-resize font to fit container
+    function autoResizeText(element, minSize = 12, maxSize = 20) {
+      let fontSize = maxSize;
+      element.style.fontSize = fontSize + 'px';
+      
+      while ((element.scrollHeight > element.clientHeight || 
+              element.scrollWidth > element.clientWidth) && 
+             fontSize > minSize) {
+        fontSize -= 0.5;
+        element.style.fontSize = fontSize + 'px';
+      }
+    }
+
+    // Example usage (uncomment to test):
+    // const textBoxes = document.querySelectorAll('.text-box--auto-resize');
+    // textBoxes.forEach(box => autoResizeText(box));
+  </script>
+</body>
+</html>

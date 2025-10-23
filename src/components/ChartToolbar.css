@@ -1,0 +1,89 @@
+.chart-toolbar-wrapper {
+  position: absolute;
+  z-index: 1180;
+  pointer-events: auto;
+}
+
+.chart-toolbar-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.chart-type-select {
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.chart-type-select:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.chart-type-select:focus {
+  border-color: #6b7280;
+  background: #ffffff;
+}
+
+.chart-toolbar-button {
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 14px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.chart-toolbar-button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+.chart-toolbar-button.delete {
+  border-color: #d1d5db;
+  background: #f9fafb;
+  color: #374151;
+}
+
+.chart-toolbar-button.delete:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+@media (max-width: 640px) {
+  .chart-toolbar-card {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .chart-toolbar-title {
+    width: 140px;
+    font-size: 11px;
+  }
+
+  .chart-toolbar-button {
+    height: 24px;
+    padding: 0 10px;
+  }
+}

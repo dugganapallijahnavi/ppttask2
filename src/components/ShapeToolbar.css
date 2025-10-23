@@ -1,0 +1,88 @@
+.shape-toolbar-wrapper {
+  position: absolute;
+  z-index: 1180;
+  pointer-events: auto;
+}
+
+.shape-toolbar-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(203, 213, 225, 0.7);
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.14);
+  color: #111827;
+  font-family: 'Inter', sans-serif;
+}
+
+.shape-select {
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 12px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.shape-select:focus {
+  border-color: rgba(79, 70, 229, 0.4);
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.2);
+}
+
+.shape-color-picker {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  padding: 0;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.shape-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.shape-color-picker::-webkit-color-swatch {
+  border-radius: 8px;
+  border: none;
+}
+
+.shape-toolbar-delete {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(15, 23, 42, 0.08);
+  color: #111827;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.shape-toolbar-delete:hover {
+  border-color: rgba(71, 85, 105, 0.5);
+  background: rgba(15, 23, 42, 0.15);
+  color: #0f172a;
+}
+
+@media (max-width: 560px) {
+  .shape-toolbar-inline {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .shape-select,
+  .shape-toolbar-delete {
+    width: 100%;
+  }
+}
