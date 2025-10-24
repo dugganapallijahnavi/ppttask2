@@ -29,17 +29,17 @@
 .toolbar-button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 18px;
+  gap: 6px;
+  padding: 6px 14px;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.25);
   border-radius: 999px;
   color: #111111;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
 }
 
 .toolbar-button:hover {
@@ -382,19 +382,163 @@
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
 }
 
+/* Tablet and smaller laptops */
+@media (max-width: 1200px) {
+  .enhanced-toolbar {
+    padding: 6px 12px;
+    gap: 6px;
+  }
+  
+  .toolbar-button {
+    padding: 5px 10px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  
+  .toolbar-icon {
+    font-size: 13px;
+  }
+  
+  .dropdown-menu {
+    min-width: 160px;
+    font-size: 11px;
+  }
+  
+  .dropdown-item {
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+}
+
+/* Tablets */
+@media (max-width: 900px) {
+  .enhanced-toolbar {
+    padding: 5px 8px;
+    gap: 5px;
+    justify-content: flex-start;
+  }
+  
+  .toolbar-button {
+    padding: 4px 8px;
+    font-size: 10px;
+    gap: 3px;
+  }
+  
+  .toolbar-icon {
+    font-size: 12px;
+  }
+  
+  /* Show only icon on smaller buttons */
+  .toolbar-button .button-text {
+    display: inline;
+  }
+  
+  .dropdown-item {
+    font-size: 10px;
+    padding: 5px 7px;
+  }
+}
+
+/* Mobile landscape and large phones */
 @media (max-width: 768px) {
   .enhanced-toolbar {
     flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px 14px;
+    gap: 4px;
+    padding: 4px 6px;
+    justify-content: flex-start;
   }
 
   .toolbar-button {
-    padding: 6px 14px;
-    font-size: 13px;
+    padding: 3px 6px;
+    font-size: 9px;
+    gap: 2px;
+    min-width: auto;
+  }
+  
+  .toolbar-icon {
+    font-size: 11px;
+  }
+  
+  /* Hide text labels on mobile, show only icons */
+  .toolbar-button .button-text {
+    display: none;
+  }
+  
+  .toolbar-group-actions {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
   }
 
   .dropdown-menu {
-    min-width: 220px;
+    min-width: 140px;
+    max-width: calc(100vw - 32px);
+    left: 0;
+    right: auto;
+    font-size: 10px;
+  }
+  
+  .dropdown-item {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+  
+  .color-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+/* Mobile portrait */
+@media (max-width: 480px) {
+  .enhanced-toolbar {
+    padding: 3px 5px;
+    gap: 3px;
+  }
+  
+  .toolbar-button {
+    padding: 3px 5px;
+    font-size: 8px;
+    border-radius: 6px;
+  }
+  
+  .toolbar-icon {
+    font-size: 10px;
+  }
+  
+  .dropdown-menu {
+    min-width: 120px;
+    font-size: 9px;
+  }
+  
+  .dropdown-item {
+    padding: 5px 6px;
+    font-size: 9px;
+  }
+  
+  .color-option {
+    width: 24px !important;
+    height: 24px !important;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 360px) {
+  .enhanced-toolbar {
+    padding: 3px 4px;
+    gap: 2px;
+  }
+  
+  .toolbar-button {
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+  
+  .toolbar-icon {
+    font-size: 9px;
+  }
+  
+  .dropdown-item {
+    font-size: 8px;
+    padding: 4px 5px;
   }
 }

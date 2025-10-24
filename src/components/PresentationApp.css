@@ -7,18 +7,19 @@
   opacity: 1;
   pointer-events: auto;
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
-  background-color: #ffffff;
-  border: 1px solid rgba(37, 99, 235, 0.65);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+  background-color: #000000;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   z-index: 5;
-  transition: background-color 0.1s ease, transform 0.1s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
 .slide-element-wrapper.selected .react-rnd-handle:hover {
-  background-color: rgba(37, 99, 235, 0.9);
+  background-color: #333333;
+  transform: scale(1.15);
 }
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
@@ -125,6 +126,48 @@ body {
 
 .slide-element-wrapper.text {
   cursor: text;
+}
+
+/* Borders for shapes */
+.slide-element-wrapper.shape {
+  border: 2px solid transparent;
+}
+
+.slide-element-wrapper.shape:hover {
+  border-color: #64748b;
+}
+
+.slide-element-wrapper.shape.selected {
+  border-color: #000000;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Borders for charts */
+.slide-element-wrapper.chart {
+  border: 2px solid transparent;
+}
+
+.slide-element-wrapper.chart:hover {
+  border-color: #64748b;
+}
+
+.slide-element-wrapper.chart.selected {
+  border-color: #000000;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Borders for images */
+.slide-element-wrapper.image {
+  border: 2px solid transparent;
+}
+
+.slide-element-wrapper.image:hover {
+  border-color: #64748b;
+}
+
+.slide-element-wrapper.image.selected {
+  border-color: #000000;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
 }
 
 .slide-element-wrapper.selected {
@@ -772,89 +815,194 @@ body {
 }
 
 /* Responsive layout adjustments */
+
+/* Large tablets and small laptops */
 @media (max-width: 1200px) {
   .editor-layout {
     display: flex;
     flex-direction: column;
   }
+  
   .main-content {
     display: flex;
     flex-direction: row;
     align-items: stretch;
-    gap: 16px;
-    padding: 0 16px;
+    gap: 14px;
+    padding: 0 14px;
   }
+  
   .slide-panel {
-    width: 260px;
-    flex: 0 0 260px;
+    width: 240px;
+    flex: 0 0 240px;
     min-height: auto;
   }
+  
   .slide-editor {
     flex: 1;
-    padding: 18px;
+    padding: 16px;
     justify-content: center;
     align-items: center;
   }
+  
   .slide {
-    width: min(100%, 820px);
+    width: min(100%, 750px);
     height: auto;
-    max-height: 70vh;
+    max-height: 68vh;
+  }
+  
+  /* Scale down elements slightly */
+  .slide-element-wrapper.selected .react-rnd-handle {
+    width: 11px;
+    height: 11px;
   }
 }
 
+/* Tablets */
+@media (max-width: 900px) {
+  .main-content {
+    gap: 12px;
+    padding: 0 12px;
+  }
+  
+  .slide-panel {
+    width: 200px;
+    flex: 0 0 200px;
+  }
+  
+  .slide-editor {
+    padding: 14px;
+  }
+  
+  .slide {
+    width: min(100%, 650px);
+    max-height: 65vh;
+  }
+}
+
+/* Mobile landscape and large phones */
 @media (max-width: 768px) {
   body {
     overflow-y: auto;
+    font-size: 14px;
   }
+  
   .presentation-app {
     height: auto;
     min-height: 100vh;
   }
+  
   .editor-layout {
     display: flex;
     flex-direction: column;
   }
+  
+  /* Move slide panel to bottom */
   .slide-panel {
     order: 2;
     width: 100%;
     height: auto;
     min-height: auto;
+    max-height: 180px;
     flex: none;
   }
+  
   .main-content {
     order: 1;
     flex-direction: column;
     overflow: visible;
+    padding: 0;
   }
+  
   .slide-editor {
     width: 100%;
-    padding: 16px;
+    padding: 12px;
     order: 1;
   }
+  
   .slide-container {
-    padding: 12px;
+    padding: 10px;
   }
+  
   .slide {
     width: 100%;
     height: auto;
     max-height: none;
+    min-height: 280px;
+    border-radius: 10px;
   }
+  
   .enhanced-toolbar,
   .toolbar {
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
+  }
+  
+  /* Larger touch targets */
+  .slide-element-wrapper.selected .react-rnd-handle {
+    width: 13px;
+    height: 13px;
+    border-width: 3px;
+  }
+  
+  /* Dropdown adjustments */
+  .dropdown-menu {
+    max-width: calc(100vw - 24px);
   }
 }
 
+/* Mobile portrait */
 @media (max-width: 480px) {
-  .slide-editor {
-    padding: 12px 10px;
+  body {
+    font-size: 13px;
   }
-  .slide-container {
+  
+  .slide-editor {
     padding: 10px 8px;
   }
+  
+  .slide-container {
+    padding: 8px;
+  }
+  
   .slide {
+    border-radius: 8px;
+    min-height: 240px;
+  }
+  
+  .slide-panel {
+    max-height: 160px;
+  }
+  
+  /* Even larger touch targets */
+  .slide-element-wrapper.selected .react-rnd-handle {
+    width: 15px;
+    height: 15px;
+  }
+  
+  /* Scale down toolbar icons */
+  .top-bar {
+    padding: 6px 8px;
+  }
+  
+  .top-bar-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+}
+
+/* Very small devices */
+@media (max-width: 360px) {
+  .slide {
+    min-height: 200px;
     border-radius: 6px;
+  }
+  
+  .slide-panel {
+    max-height: 140px;
+  }
+  
+  .slide-editor {
+    padding: 8px 6px;
   }
 }
 

@@ -249,10 +249,15 @@ const SlideEditor = ({ slide, updateSlide, insertAction, onInsertActionHandled }
 
   /* ---------- Text handling ---------- */
   const handleTextBlur = (e, el) => {
-    const text = e.target.textContent || '';
-    const measured = e.target.offsetHeight || el.height || MIN_TEXT_HEIGHT;
+    const target = e.target;
+    if (!target) {
+      return;
+    }
+    const html = target.innerHTML || '';
+    const plain = target.textContent || '';
+    const measured = target.offsetHeight || el.height || MIN_TEXT_HEIGHT;
     const clamped = Math.max(MIN_TEXT_HEIGHT, Math.round(measured));
-    updateElement(el.id, { text, height: clamped });
+    updateElement(el.id, { text: html, plainText: plain, height: clamped });
   };
 
   /* Renderers */
@@ -297,15 +302,24 @@ const SlideEditor = ({ slide, updateSlide, insertAction, onInsertActionHandled }
             const target = e.target;
             const wrapper = target.closest('.slide-element-wrapper');
             if (!wrapper) return;
+
             const original = target.style.height;
             target.style.height = 'auto';
             const measured = target.scrollHeight;
             target.style.height = original;
             const clamped = Math.max(MIN_TEXT_HEIGHT, Math.round(measured));
             const current = el.height || MIN_TEXT_HEIGHT;
+
+            const updates = {
+              text: target.innerHTML || '',
+              plainText: target.textContent || ''
+            };
+
             if (Math.abs(clamped - current) > 2){
-              requestAnimationFrame(()=> updateElement(el.id, { height: clamped }) );
+              updates.height = clamped;
             }
+
+            updateElement(el.id, updates);
           }}
           onBlur={(e)=>{ handleTextBlur(e, el); setEditingTextId(c=>c===el.id?null:c); }}
           dangerouslySetInnerHTML={{ __html: el.text || '' }}

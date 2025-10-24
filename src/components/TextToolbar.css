@@ -8,17 +8,17 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  row-gap: 6px;
-  padding: 8px 12px;
-  border-radius: 14px;
+  gap: 5px;
+  row-gap: 5px;
+  padding: 6px 10px;
+  border-radius: 12px;
   background: rgba(226, 232, 240, 0.9);
   border: 1px solid rgba(203, 213, 225, 0.7);
-  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.1);
   color: #111827;
   font-family: 'Inter', sans-serif;
   width: max-content;
-  max-width: 640px;
+  max-width: 580px;
 }
 
 .toolbar-item {
@@ -150,26 +150,131 @@
   outline-offset: 2px;
 }
 
+/* Tablet */
+@media (max-width: 900px) {
+  .text-toolbar-card {
+    padding: 5px 7px;
+    gap: 3px;
+    max-width: 400px;
+  }
+  
+  .toolbar-item select,
+  .toolbar-item input {
+    height: 20px;
+    font-size: 10px;
+    padding: 0 4px;
+  }
+  
+  .text-style-button {
+    height: 20px;
+    width: 24px;
+    font-size: 10px;
+  }
+  
+  .toolbar-item.delete button {
+    height: 20px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+}
+
+/* Mobile */
 @media (max-width: 720px) {
   .text-toolbar-card {
     flex-wrap: wrap;
-    gap: 4px;
-    row-gap: 6px;
+    gap: 2px;
+    row-gap: 3px;
+    padding: 4px 6px;
+    max-width: 320px;
   }
 
   .toolbar-item select,
   .toolbar-item input {
-    height: 22px;
-    font-size: 11px;
+    height: 18px;
+    font-size: 9px;
+    padding: 0 3px;
   }
 
   .text-style-button {
-    height: 22px;
-    width: 26px;
+    height: 18px;
+    width: 22px;
+    font-size: 9px;
   }
 
   .toolbar-item.color input[type='color'] {
-    height: 22px;
-    width: 28px;
+    height: 18px;
+    width: 24px;
+  }
+  
+  .toolbar-item.delete button {
+    height: 20px;
+    padding: 0 7px;
+    font-size: 9px;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .text-toolbar-card {
+    padding: 3px 4px;
+    gap: 2px;
+    row-gap: 3px;
+    max-width: 270px;
+    font-size: 8px;
+  }
+  
+  .toolbar-item select,
+  .toolbar-item input {
+    height: 16px;
+    font-size: 8px;
+    padding: 0 2px;
+    min-width: 40px;
+  }
+  
+  .text-style-button {
+    height: 16px;
+    width: 20px;
+    font-size: 8px;
+  }
+  
+  .toolbar-item.color input[type='color'] {
+    height: 16px;
+    width: 20px;
+  }
+  
+  .toolbar-item.delete button {
+    height: 18px;
+    padding: 0 6px;
+    font-size: 8px;
+  }
+}
+
+/* Very small devices */
+@media (max-width: 360px) {
+  .text-toolbar-card {
+    padding: 2px 3px;
+    gap: 1px;
+    max-width: 230px;
+    font-size: 7px;
+  }
+  
+  .toolbar-item select,
+  .toolbar-item input {
+    height: 14px;
+    font-size: 7px;
+    padding: 0 2px;
+    min-width: 35px;
+  }
+  
+  .text-style-button {
+    height: 14px;
+    width: 18px;
+    font-size: 7px;
+  }
+  
+  .toolbar-item.delete button {
+    height: 16px;
+    padding: 0 5px;
+    font-size: 7px;
   }
 }

@@ -106,8 +106,8 @@ const TextToolbar = ({
   position = { x: 0, y: 0 },
   isVisible = true
 }) => {
-  const [presetKey, setPresetKey] = useState('heading');
-  const [fontSize, setFontSize] = useState(56);
+  const [presetKey, setPresetKey] = useState('body');
+  const [fontSize, setFontSize] = useState(20);
   const [fontFamily, setFontFamily] = useState(FONT_OPTIONS[0].value);
   const [textColor, setTextColor] = useState(DEFAULT_COLOR);
   const [viewportWidth, setViewportWidth] = useState(
@@ -196,10 +196,21 @@ const TextToolbar = ({
           item.fontFamily === resolvedFamily &&
           Math.round(item.fontSize) === resolvedSize
       ) || null;
+    
     if (element.textStyle) {
       setPresetKey(element.textStyle);
+    } else if (matchedPreset) {
+      setPresetKey(matchedPreset.key);
     } else {
-      setPresetKey(matchedPreset ? matchedPreset.key : 'custom');
+      // Detect based on fontSize and fontWeight
+      const fontWeight = element.fontWeight || 400;
+      if (resolvedSize >= 40) {
+        setPresetKey('heading');
+      } else if (resolvedSize >= 28 && fontWeight >= 600) {
+        setPresetKey('title');
+      } else {
+        setPresetKey('body'); // Default to paragraph for normal text
+      }
     }
   }, [element]);
 
@@ -302,7 +313,7 @@ const TextToolbar = ({
         <div className="toolbar-item preset">
           <select
             aria-label="Text preset"
-            value={presetKey === 'custom' ? 'heading' : presetKey}
+            value={presetKey === 'custom' ? 'body' : presetKey}
             onChange={handleHeadingChange}
           >
             {STYLE_PRESETS.map((preset) => (

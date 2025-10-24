@@ -139,7 +139,7 @@ const RichTextEditor = ({
       fontSize: element.fontSize ? `${element.fontSize}px` : '18px',
       color: element.color || '#f9fafb',
       textAlign: element.textAlign || 'left',
-      fontWeight: element.fontWeight || (element.bold ? 600 : 400),
+      fontWeight: element.bold ? 700 : (element.fontWeight || 400),
       fontStyle: element.italic ? 'italic' : 'normal',
       textDecoration: decorations.join(' ') || 'none',
       lineHeight: element.lineHeight ? String(element.lineHeight) : '1.3',

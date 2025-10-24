@@ -937,10 +937,11 @@ const PresentationApp = () => {
         text: '<p>Click to edit text</p>',
         plainText: 'Click to edit text',
         textAlign: 'left',
-        fontWeight: 700,
-        bold: true,
+        fontWeight: 400,
+        bold: false,
         italic: false,
-        underline: false
+        underline: false,
+        textStyle: 'body'
       };
 
       updateSlide(currentSlideIndex, {
@@ -1070,10 +1071,11 @@ const PresentationApp = () => {
           text: '<p>Click to edit text</p>',
           plainText: 'Click to edit text',
           textAlign: 'left',
-          fontWeight: 700,
-          bold: true,
+          fontWeight: 400,
+          bold: false,
           italic: false,
-          underline: false
+          underline: false,
+          textStyle: 'body'
         };
         break;
       case 'shape':

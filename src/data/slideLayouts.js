@@ -25,7 +25,7 @@ const createParagraphElement = (text, overrides = {}) =>
     fontSize: 20,
     fontFamily: 'Georgia, serif',
     fontWeight: 400,
-    textStyle: 'paragraph',
+    textStyle: 'body',
     y: 300,
     color: '#1f2937',
     ...overrides
