@@ -1,6 +1,41 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import './SlidePanel.css';
 import { SLIDE_LAYOUTS, DEFAULT_LAYOUT_ID } from '../data/slideLayouts';
+
+const htmlToPlainText = (value) => {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+
+  return value
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|li)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
+const getPreviewLines = (slide) => {
+  const firstTextElement = slide?.content?.find((item) => item.type === 'text');
+  if (!firstTextElement) {
+    return [];
+  }
+
+  const rawHtml = firstTextElement.text || '';
+  const plain = firstTextElement.plainText ?? htmlToPlainText(rawHtml);
+  if (!plain) {
+    return [];
+  }
+
+  const lines = plain
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const selected = lines.slice(0, 3);
+  return selected.map((line) => (line.toLowerCase() === 'click to edit text' ? 'Click to edit' : line));
+};
 
 const SlidePanel = ({
   slides,
@@ -138,33 +173,6 @@ const SlidePanel = ({
     }
   };
 
-  const getSlideTitle = (slide) => {
-    const firstTextElement = slide?.content?.find((item) => item.type === 'text');
-    if (firstTextElement?.text) {
-      const firstLine = firstTextElement.text.split('\n').find((line) => line.trim().length);
-      if (firstLine) {
-        return firstLine.trim().slice(0, 80);
-      }
-      return firstTextElement.text.trim().slice(0, 80);
-    }
-    return 'Untitled Slide';
-  };
-
-  const getPreviewLines = (slide) => {
-    const firstTextElement = slide?.content?.find((item) => item.type === 'text');
-    if (firstTextElement?.text) {
-      const lines = firstTextElement.text
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean);
-
-      if (lines.length) {
-        return lines.slice(0, 2);
-      }
-    }
-    return ['Use the layout picker', 'to get started quickly'];
-  };
-
   return (
     <div className="slide-panel">
       <div className="slide-panel-header">
@@ -180,44 +188,53 @@ const SlidePanel = ({
       </div>
 
       <div className="slides-list">
-        {slides.map((slide, index) => (
-          <div
-            key={slide.id}
-            className={`slide-thumbnail ${currentSlide === index ? 'active' : ''}${
-              dragIndex === index ? ' dragging' : ''
-            }${
-              dragOverIndex === index && dragPosition ? ` drop-${dragPosition}` : ''
-            }`}
-            onClick={() => handleThumbnailClick(index)}
-            onContextMenu={(e) => handleSlideContextMenu(e, index)}
-            draggable
-            onDragStart={handleDragStart(index)}
-            onDragOver={handleDragOver(index)}
-            onDragLeave={handleDragLeave(index)}
-            onDrop={handleDrop(index)}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="slide-thumb-number">{index + 1}</div>
-            <div className="slide-thumb-preview">
-              <div className="slide-thumb-preview-inner">
-                {getPreviewLines(slide).map((line, lineIndex) => (
-                  <span key={`${slide.id}-preview-line-${lineIndex}`}>{line}</span>
-                ))}
+        {slides.map((slide, index) => {
+          const previewLines = getPreviewLines(slide);
+          const hasPreview = previewLines.length > 0;
+
+          return (
+            <div
+              key={slide.id}
+              className={`slide-thumbnail ${currentSlide === index ? 'active' : ''}${
+                dragIndex === index ? ' dragging' : ''
+              }${
+                dragOverIndex === index && dragPosition ? ` drop-${dragPosition}` : ''
+              }`}
+              onClick={() => handleThumbnailClick(index)}
+              onContextMenu={(e) => handleSlideContextMenu(e, index)}
+              draggable
+              onDragStart={handleDragStart(index)}
+              onDragOver={handleDragOver(index)}
+              onDragLeave={handleDragLeave(index)}
+              onDrop={handleDrop(index)}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="slide-card-header">
+                <span className="slide-card-title">{`Slide ${index + 1}`}</span>
+                {slides.length > 1 && (
+                  <button
+                    type="button"
+                    className="slide-card-delete"
+                    onClick={(event) => handleDeleteSlide(event, index)}
+                    aria-label={`Delete slide ${index + 1}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              <div className="slide-card-preview">
+                {hasPreview ? (
+                  previewLines.map((line, lineIndex) => (
+                    <span key={`${slide.id}-preview-line-${lineIndex}`}>{line}</span>
+                  ))
+                ) : (
+                  <span className="slide-card-preview-placeholder">Click to edit</span>
+                )}
               </div>
             </div>
-            <div className="slide-title">{getSlideTitle(slide)}</div>
-            {slides.length > 1 && (
-              <button
-                type="button"
-                className="slide-thumb-delete"
-                onClick={(event) => handleDeleteSlide(event, index)}
-                aria-label={`Delete slide ${index + 1}`}
-              >
-                ×
-              </button>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {isLayoutPickerOpen && (

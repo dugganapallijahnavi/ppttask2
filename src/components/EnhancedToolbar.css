@@ -5,13 +5,13 @@
   justify-content: flex-start;
   gap: 12px;
   padding: 12px 20px;
-  background: white;
-  border-bottom: 1px solid var(--color-border);
-  box-shadow: 0 10px 24px var(--color-shadow);
+  background: #494848;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
   position: sticky;
   top: 0;
   z-index: 90;
-  color: var(--color-text-secondary);
+  color: #f2f2f2;
 }
 
 .toolbar-group {
@@ -31,46 +31,47 @@
   align-items: center;
   gap: 8px;
   padding: 8px 18px;
-  background: var(--color-surface-alt);
-  border: 1px solid var(--color-border);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.25);
   border-radius: 999px;
-  color: var(--color-text-secondary);
+  color: #111111;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
 }
 
 .toolbar-button:hover {
-  background: #262626;
-  border-color: var(--color-border-soft);
-  color: var(--color-text-primary);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
+  background: #f1f1f1;
+  border-color: rgba(0, 0, 0, 0.35);
+  color: #000000;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
 }
 
 
 .toolbar-button.primary {
-  background: var(--color-surface-light);
-  border-color: #d0d0d0;
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.3);
   color: #111111;
 }
 
 .toolbar-button.primary:hover {
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-  background: #e0e0e0;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+  background: #f3f3f3;
   color: #000000;
 }
 
 .toolbar-button.secondary {
-  background: #1f1f1f;
-  border-color: var(--color-border);
-  color: var(--color-text-secondary);
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.25);
+  color: #111111;
 }
 
 .toolbar-button.active {
-  background: #2a2a2a;
-  border-color: var(--color-border-soft);
-  color: var(--color-text-primary);
+  background: #f3f3f3;
+  border-color: rgba(0, 0, 0, 0.35);
+  color: #000000;
 }
 
 .button-icon {
@@ -124,7 +125,25 @@
 }
 
 .dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: #f1f5f9;
+  color: #111111;
+}
+
+.dropdown-item:hover .dropdown-title {
+  color: #111111;
+}
+
+.dropdown-item:hover .dropdown-description {
+  color: #1f2937;
+}
+
+.dropdown-item:hover .dropdown-icon {
+  background: rgba(255, 255, 255, 0.9);
+  color: #111111;
+}
+
+.dropdown-item:hover .dropdown-chevron {
+  color: #111111;
 }
 
 .dropdown-item .dropdown-icon {
@@ -263,7 +282,7 @@
   padding: 10px 12px;
   border-radius: 12px;
   border: none;
-  background: #1c1c1c;
+  background: rgba(23, 24, 32, 0.95);
   color: var(--color-text-secondary);
   font-size: 14px;
   cursor: pointer;
@@ -271,12 +290,17 @@
 }
 
 .theme-option:hover {
-  background: #2a2a2a;
+  background: #f1f5f9;
+  color: #111111;
+}
+
+.theme-option:hover .theme-preview-chip {
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.2);
 }
 
 .theme-option.active {
-  background: #3a3a3a;
-  color: var(--color-text-primary);
+  background: linear-gradient(135deg, #e2e8f0, #f8fafc);
+  color: #111111;
 }
 
 .theme-preview {

@@ -1,15 +1,21 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './ImageComponent.css';
 
 const ImageComponent = ({ 
   element, 
   onUpdate, 
   onClose, 
-  isEditing = false 
+  isEditing = false,
+  onDelete,
+  showDeleteButton = false
 }) => {
   const [imageData, setImageData] = useState(element.imageData || null);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    setImageData(element.imageData || null);
+  }, [element.imageData]);
 
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
@@ -18,7 +24,7 @@ const ImageComponent = ({
       
       const reader = new FileReader();
       reader.onload = (e) => {
-        const imageData = {
+        const nextImageData = {
           src: e.target.result,
           name: file.name,
           size: file.size,
@@ -26,12 +32,16 @@ const ImageComponent = ({
           uploadedAt: new Date().toISOString()
         };
         
-        setImageData(imageData);
+        setImageData(nextImageData);
         onUpdate({
           ...element,
-          imageData: imageData
+          imageData: nextImageData,
+          src: nextImageData.src
         });
         setIsLoading(false);
+        if (onClose) {
+          onClose();
+        }
       };
       
       reader.readAsDataURL(file);
@@ -42,7 +52,8 @@ const ImageComponent = ({
     setImageData(null);
     onUpdate({
       ...element,
-      imageData: null
+      imageData: null,
+      src: null
     });
   };
 
@@ -123,27 +134,39 @@ const ImageComponent = ({
   }
 
   return (
-    <div className="image-element" onClick={() => onClose && onClose(true)}>
-      {imageData ? (
-        <div className="image-container">
-          <img 
-            src={imageData.src} 
-            alt={imageData.name}
-            className="slide-image"
-          />
-          <div className="image-overlay">
-            <span className="edit-text">Click to edit image</span>
-          </div>
-        </div>
-      ) : (
-        <div className="image-placeholder">
-          <div className="placeholder-content">
-            <span className="placeholder-icon">🖼️</span>
-            <span className="placeholder-text">No Image</span>
-            <span className="placeholder-subtext">Click to add image</span>
-          </div>
-        </div>
+    <div className="image-wrapper">
+      {showDeleteButton && onDelete && (
+        <button
+          className="image-delete-button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          Delete
+        </button>
       )}
+      <div className="image-element">
+        {imageData ? (
+          <div className="image-container">
+            <img 
+              src={imageData.src} 
+              alt={imageData.name}
+              className="slide-image"
+              draggable={false}
+            />
+          </div>
+        ) : (
+          <div className="image-placeholder">
+            <div className="placeholder-content">
+              <span className="placeholder-icon">🖼️</span>
+              <span className="placeholder-text">No Image</span>
+              <span className="placeholder-subtext">Use toolbar to add image</span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

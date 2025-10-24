@@ -1,10 +1,14 @@
 // src/components/PresentationApp.js
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './PresentationApp.css';
+import { Rnd } from 'react-rnd';
 import ChartComponent from './ChartComponent';
 import ChartDataEditor from './ChartDataEditor';
 import ImageComponent from './ImageComponent';
 import RichTextEditor from './RichTextEditor';
+import TextToolbar from './TextToolbar';
+import ShapeToolbar from './ShapeToolbar';
+import ChartToolbar from './ChartToolbar';
 
 import SlidePanel from './SlidePanel';
 import EnhancedToolbar from './EnhancedToolbar';
@@ -12,7 +16,12 @@ import { createSlideFromLayout } from '../data/slideLayouts';
 import { exportSlidesAsPptx } from '../utils/pptxExport';
 
 const DEFAULT_BACKGROUND = '#ffffff';
-const TEXT_TOOLBAR_HALF_WIDTH = 280;
+const TEXT_TOOLBAR_HALF_WIDTH = 200;
+const TEXT_TOOLBAR_VERTICAL_OFFSET = 70;
+const MIN_TEXT_WIDTH = 120;
+const MIN_TEXT_HEIGHT = 40;
+const MIN_ELEMENT_SIZE = 60;
+const MIN_CHART_HEIGHT = 120;
 
 // Theme definitions
 const themes = {
@@ -319,9 +328,12 @@ const PresentationApp = () => {
   const [currentTheme, setCurrentTheme] = useState('minimal');
   const [hoveredElement, setHoveredElement] = useState(null);
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
+  const [shapeToolbarPosition, setShapeToolbarPosition] = useState(null);
+  const [chartToolbarPosition, setChartToolbarPosition] = useState(null);
   const [editingImage, setEditingImage] = useState(null);
   const [chartEditorId, setChartEditorId] = useState(null);
   const [selectedElement, setSelectedElement] = useState(null);
+  const [editingTextId, setEditingTextId] = useState(null);
   const [keepInsertEnabled, setKeepInsertEnabled] = useState(false);
   // Defer element placement until user clicks on slide
   const [pendingInsert, setPendingInsert] = useState(null);
@@ -332,8 +344,113 @@ const PresentationApp = () => {
     setPendingInsertPos(null);
   }, []);
   const slideRef = useRef(null);
-  const dragStateRef = useRef(null);
-  const resizeStateRef = useRef(null);
+  const elementRefs = useRef({});
+
+  const registerElementRef = useCallback(
+    (id) => (node) => {
+      if (node) {
+        elementRefs.current[id] = node;
+      } else {
+        delete elementRefs.current[id];
+      }
+    },
+    []
+  );
+
+  const focusTextElement = useCallback((elementId, attempt = 0) => {
+    if (!elementId) {
+      return;
+    }
+
+    const run = () => {
+      const wrapper = elementRefs.current[elementId];
+      if (!wrapper) {
+        if (attempt < 6) {
+          setTimeout(() => focusTextElement(elementId, attempt + 1), 32);
+        }
+        return;
+      }
+
+      const editable = wrapper.querySelector('[data-text-editable="true"]');
+      if (!editable) {
+        if (attempt < 6) {
+          setTimeout(() => focusTextElement(elementId, attempt + 1), 32);
+        }
+        return;
+      }
+
+      if (editable !== document.activeElement) {
+        editable.focus({ preventScroll: false });
+      }
+
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        const selection = window.getSelection();
+        if (selection) {
+          selection.removeAllRanges();
+          const range = document.createRange();
+          range.selectNodeContents(editable);
+          range.collapse(false);
+          selection.addRange(range);
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(run);
+    } else {
+      run();
+    }
+  }, []);
+
+  const updateTextToolbarPosition = useCallback(
+    (elementId) => {
+      const slideNode = slideRef.current;
+      const elementNode = elementRefs.current[elementId];
+      if (!slideNode || !elementNode) {
+        return;
+      }
+
+      const slideRect = slideNode.getBoundingClientRect();
+      const elementRect = elementNode.getBoundingClientRect();
+      const centerX =
+        elementRect.left - slideRect.left + elementRect.width / 2;
+      const clampedX = Math.max(
+        TEXT_TOOLBAR_HALF_WIDTH,
+        Math.min(centerX, slideRect.width - TEXT_TOOLBAR_HALF_WIDTH)
+      );
+      const relativeTop = Math.max(
+        elementRect.top - slideRect.top - TEXT_TOOLBAR_VERTICAL_OFFSET,
+        8
+      );
+      setToolbarPosition({
+        x: clampedX,
+        y: relativeTop
+      });
+    },
+    [setToolbarPosition]
+  );
+
+  const updateShapeToolbarPosition = useCallback(
+    (elementId) => {
+      const slideNode = slideRef.current;
+      const elementNode = elementRefs.current[elementId];
+      if (!slideNode || !elementNode) {
+        return;
+      }
+
+      const slideRect = slideNode.getBoundingClientRect();
+      const elementRect = elementNode.getBoundingClientRect();
+      const centerX = elementRect.left - slideRect.left + elementRect.width / 2;
+      const clampedX = Math.max(24, Math.min(centerX, slideRect.width - 24));
+      const relativeTop = Math.max(elementRect.top - slideRect.top, 0);
+
+      setShapeToolbarPosition({
+        x: clampedX,
+        y: relativeTop
+      });
+    },
+    []
+  );
 
   // Keyboard navigation and click outside
   useEffect(() => {
@@ -459,6 +576,165 @@ const PresentationApp = () => {
     );
   }, [currentSlideIndex]);
 
+  const handleElementPointerDown = useCallback(
+    (event, element) => {
+      if (pendingInsert) {
+        return;
+      }
+      event.stopPropagation();
+      setSelectedElement(element);
+      if (element.type === 'text') {
+        setHoveredElement(element.id);
+        updateTextToolbarPosition(element.id);
+        setShapeToolbarPosition(null);
+      } else if (element.type === 'shape') {
+        updateShapeToolbarPosition(element.id);
+        setToolbarPosition({ x: 0, y: 0 });
+      }
+    },
+    [pendingInsert, updateShapeToolbarPosition, updateTextToolbarPosition]
+  );
+
+  const handleDragStart = useCallback(
+    (element) => {
+      if (pendingInsert) {
+        return;
+      }
+      setSelectedElement(element);
+      if (element.type === 'text') {
+        setHoveredElement(element.id);
+        updateTextToolbarPosition(element.id);
+        setShapeToolbarPosition(null);
+      } else if (element.type === 'shape') {
+        updateShapeToolbarPosition(element.id);
+        setToolbarPosition({ x: 0, y: 0 });
+      }
+      setEditingTextId((current) => (current === element.id ? null : current));
+      if (typeof document !== 'undefined') {
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
+      }
+    },
+    [pendingInsert, updateShapeToolbarPosition, updateTextToolbarPosition]
+  );
+
+  const handleDragStop = useCallback(
+    (element, position) => {
+      if (pendingInsert) {
+        return;
+      }
+      if (typeof document !== 'undefined') {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
+      if (element.type === 'text') {
+        setHoveredElement(element.id);
+        updateTextToolbarPosition(element.id);
+      } else if (element.type === 'shape') {
+        updateShapeToolbarPosition(element.id);
+      }
+      updateElement(element.id, {
+        x: Math.round(position.x),
+        y: Math.round(position.y)
+      });
+    },
+    [pendingInsert, updateElement, updateShapeToolbarPosition, updateTextToolbarPosition]
+  );
+
+  const handleResizeStart = useCallback(
+    (element) => {
+      if (pendingInsert) {
+        return;
+      }
+      setSelectedElement(element);
+      if (element.type === 'text') {
+        setHoveredElement(element.id);
+        updateTextToolbarPosition(element.id);
+        setShapeToolbarPosition(null);
+      } else if (element.type === 'shape') {
+        updateShapeToolbarPosition(element.id);
+        setToolbarPosition({ x: 0, y: 0 });
+      }
+      setEditingTextId((current) => (current === element.id ? null : current));
+      if (typeof document !== 'undefined') {
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'nwse-resize';
+      }
+    },
+    [pendingInsert, updateShapeToolbarPosition, updateTextToolbarPosition]
+  );
+
+  const handleResizeStop = useCallback(
+    (element, direction, ref, position) => {
+      if (pendingInsert) {
+        return;
+      }
+      if (typeof document !== 'undefined') {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
+      const widthValue = Number.parseFloat(ref.style.width);
+      const heightValue = Number.parseFloat(ref.style.height);
+      const fallbackWidth =
+        element.type === 'text' ? MIN_TEXT_WIDTH : MIN_ELEMENT_SIZE;
+      const fallbackHeight =
+        element.type === 'text'
+          ? MIN_TEXT_HEIGHT
+          : element.type === 'chart'
+          ? MIN_CHART_HEIGHT
+          : MIN_ELEMENT_SIZE;
+
+      const previousLeft =
+        typeof element.x === 'number' && Number.isFinite(element.x)
+          ? element.x
+          : 0;
+      const previousTop =
+        typeof element.y === 'number' && Number.isFinite(element.y)
+          ? element.y
+          : 0;
+      const previousWidth =
+        typeof element.width === 'number' && Number.isFinite(element.width)
+          ? element.width
+          : fallbackWidth;
+      const previousHeight =
+        typeof element.height === 'number' && Number.isFinite(element.height)
+          ? element.height
+          : fallbackHeight;
+
+      const computedWidth = Math.round(
+        Number.isFinite(widthValue) ? widthValue : fallbackWidth
+      );
+      const computedHeight = Math.round(
+        Number.isFinite(heightValue) ? heightValue : fallbackHeight
+      );
+
+      const normalizedDirection = String(direction || '').toLowerCase();
+      const fromWest = normalizedDirection.includes('left');
+      const fromNorth = normalizedDirection.includes('top');
+      const anchoredRight = previousLeft + previousWidth;
+      const anchoredBottom = previousTop + previousHeight;
+
+      updateElement(element.id, {
+        width: Math.max(fallbackWidth, computedWidth),
+        height: Math.max(fallbackHeight, computedHeight),
+        x: fromWest
+          ? Math.round(Math.max(0, anchoredRight - computedWidth))
+          : Math.round(position.x),
+        y: fromNorth
+          ? Math.round(Math.max(0, anchoredBottom - computedHeight))
+          : Math.round(position.y)
+      });
+
+      if (element.type === 'text') {
+        setHoveredElement(element.id);
+        updateTextToolbarPosition(element.id);
+      } else if (element.type === 'shape') {
+        updateShapeToolbarPosition(element.id);
+      }
+    },
+    [pendingInsert, updateElement, updateShapeToolbarPosition, updateTextToolbarPosition]
+  );
+
   const deleteElement = useCallback((elementId) => {
     setSlides((prevSlides) => {
       const nextSlides = [...prevSlides];
@@ -474,11 +750,16 @@ const PresentationApp = () => {
     });
     setSelectedElement((current) => (current && current.id === elementId ? null : current));
     setHoveredElement((current) => (current === elementId ? null : current));
+    if (selectedElement && selectedElement.id === elementId) {
+      setShapeToolbarPosition(null);
+      setChartToolbarPosition(null);
+      setToolbarPosition({ x: 0, y: 0 });
+    }
     if (editingImage === elementId) {
       setEditingImage(null);
     }
     setChartEditorId((current) => (current === elementId ? null : current));
-  }, [currentSlideIndex, editingImage]);
+  }, [currentSlideIndex, editingImage, selectedElement]);
 
   const currentSlide = useMemo(
     () => slides[currentSlideIndex] || {},
@@ -494,16 +775,19 @@ const PresentationApp = () => {
     return currentSlide.background.color || DEFAULT_BACKGROUND;
   }, [currentSlide]);
 
-  const hoveredTextElement = useMemo(() => {
-    if (!hoveredElement) {
-      return null;
+  const activeShapeElement = useMemo(() => {
+    if (selectedElement?.type === 'shape') {
+      return selectedElement;
     }
-    return (
-      currentSlide.content?.find(
-        (item) => item.id === hoveredElement && item.type === 'text'
-      ) || null
-    );
-  }, [currentSlide, hoveredElement]);
+    if (hoveredElement) {
+      return (
+        currentSlide.content?.find(
+          (item) => item.id === hoveredElement && item.type === 'shape'
+        ) || null
+      );
+    }
+    return null;
+  }, [currentSlide, hoveredElement, selectedElement]);
 
   const handleToggleKeepInsert = (enabled) => {
     setKeepInsertEnabled(enabled);
@@ -550,205 +834,6 @@ const PresentationApp = () => {
     return toTitle(config.type);
   };
 
-  const startDrag = useCallback((event, element) => {
-    if (pendingInsert || event.button !== 0) {
-      return;
-    }
-
-    if (element.type === 'text' && event.target.closest('[data-text-editable="true"]')) {
-      return;
-    }
-
-    const slideNode = slideRef.current;
-    if (!slideNode) {
-      return;
-    }
-
-    const wrapperNode = event.currentTarget.closest('.slide-element-wrapper');
-    if (!wrapperNode) {
-      return;
-    }
-
-    const rect = slideNode.getBoundingClientRect();
-    const wrapperRect = wrapperNode.getBoundingClientRect();
-    dragStateRef.current = {
-      id: element.id,
-      offsetX: event.clientX - wrapperRect.left,
-      offsetY: event.clientY - wrapperRect.top,
-      width: wrapperRect.width,
-      height: wrapperRect.height
-    };
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'grabbing';
-    setSelectedElement(element);
-    if (element.type === 'text') {
-      setHoveredElement(element.id);
-      const centerX = wrapperRect.left - rect.left + wrapperRect.width / 2;
-      const clampedX = Math.max(
-        TEXT_TOOLBAR_HALF_WIDTH,
-        Math.min(centerX, rect.width - TEXT_TOOLBAR_HALF_WIDTH)
-      );
-      const relativeTop = Math.max(wrapperRect.top - rect.top, 0);
-      setToolbarPosition({
-        x: clampedX,
-        y: relativeTop
-      });
-    }
-  }, [pendingInsert]);
-
-  const startResize = useCallback((event, element) => {
-    if (pendingInsert || event.button !== 0) {
-      return;
-    }
-    event.stopPropagation();
-    const slideNode = slideRef.current;
-    if (!slideNode) {
-      return;
-    }
-
-    const slideRect = slideNode.getBoundingClientRect();
-    const wrapperRect = event.currentTarget.parentElement?.getBoundingClientRect();
-    const startWidth = element.width || wrapperRect?.width || 0;
-    const startHeight = element.height || wrapperRect?.height || 0;
-
-    resizeStateRef.current = {
-      id: element.id,
-      type: element.type,
-      startX: event.clientX,
-      startY: event.clientY,
-      startWidth,
-      startHeight,
-      originX: element.x || 0,
-      originY: element.y || 0,
-      minWidth: element.type === 'text' ? 120 : 60,
-      minHeight: element.type === 'text' ? 40 : 60,
-      slideWidth: slideRect.width,
-      slideHeight: slideRect.height
-    };
-
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'nwse-resize';
-  }, [pendingInsert]);
-
-  useEffect(() => {
-    const handleMouseMove = (event) => {
-      const resizeState = resizeStateRef.current;
-      if (resizeState) {
-        const slideNode = slideRef.current;
-        if (!slideNode) {
-          return;
-        }
-
-        const deltaX = event.clientX - resizeState.startX;
-        const deltaY = event.clientY - resizeState.startY;
-
-        const maxWidth = Math.max(
-          resizeState.slideWidth - resizeState.originX,
-          resizeState.minWidth
-        );
-        const maxHeight = Math.max(
-          resizeState.slideHeight - resizeState.originY,
-          resizeState.minHeight
-        );
-
-        const nextWidth = Math.min(
-          Math.max(resizeState.startWidth + deltaX, resizeState.minWidth),
-          maxWidth
-        );
-        const nextHeight = Math.min(
-          Math.max(resizeState.startHeight + deltaY, resizeState.minHeight),
-          maxHeight
-        );
-
-        if (resizeState.type === 'text') {
-          updateElement(resizeState.id, { width: Math.round(nextWidth) });
-
-          if (selectedElement?.id === resizeState.id) {
-            const centerX = Math.max(
-              TEXT_TOOLBAR_HALF_WIDTH,
-              Math.min(
-                resizeState.originX + nextWidth / 2,
-                resizeState.slideWidth - TEXT_TOOLBAR_HALF_WIDTH
-              )
-            );
-            const toolbarTop = Math.max(resizeState.originY, 24);
-            setToolbarPosition({ x: centerX, y: toolbarTop });
-          }
-        } else if (resizeState.type === 'line') {
-          updateElement(resizeState.id, {
-            width: Math.round(nextWidth),
-            strokeWidth: Math.max(1, Math.round(nextHeight))
-          });
-        } else {
-          updateElement(resizeState.id, {
-            width: Math.round(nextWidth),
-            height: Math.round(nextHeight)
-          });
-        }
-
-        event.preventDefault();
-        return;
-      }
-
-      const dragState = dragStateRef.current;
-      if (!dragState) {
-        return;
-      }
-      const slideNode = slideRef.current;
-      if (!slideNode) {
-        return;
-      }
-
-      const rect = slideNode.getBoundingClientRect();
-      const width = dragState.width || 0;
-      const height = dragState.height || 0;
-
-      let nextX = event.clientX - rect.left - dragState.offsetX;
-      let nextY = event.clientY - rect.top - dragState.offsetY;
-
-      const maxX = width ? Math.max(rect.width - width, 0) : rect.width;
-      const maxY = height ? Math.max(rect.height - height, 0) : rect.height;
-
-      nextX = Math.max(0, Math.min(nextX, maxX));
-      nextY = Math.max(0, Math.min(nextY, maxY));
-
-      updateElement(dragState.id, { x: Math.round(nextX), y: Math.round(nextY) });
-      if (selectedElement?.id === dragState.id && selectedElement?.type === 'text') {
-        const centerX = nextX + (dragState.width || 0) / 2;
-        const clampedX = Math.max(
-          TEXT_TOOLBAR_HALF_WIDTH,
-          Math.min(centerX, rect.width - TEXT_TOOLBAR_HALF_WIDTH)
-        );
-        const clampedY = Math.max(nextY, 0);
-        setToolbarPosition({
-          x: clampedX,
-          y: clampedY
-        });
-      }
-      event.preventDefault();
-    };
-
-    const handleMouseUp = () => {
-      if (dragStateRef.current) {
-        dragStateRef.current = null;
-        document.body.style.userSelect = '';
-        document.body.style.cursor = '';
-      }
-      if (resizeStateRef.current) {
-        resizeStateRef.current = null;
-        document.body.style.userSelect = '';
-        document.body.style.cursor = '';
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [updateElement, selectedElement]);
-
   const changeBackgroundColor = (color) => {
     updateSlide(currentSlideIndex, {
       ...currentSlide,
@@ -773,14 +858,77 @@ const PresentationApp = () => {
     setActiveDropdown(null);
   };
 
+  useEffect(() => {
+    if (!currentSlide) {
+      setSelectedElement(null);
+      setHoveredElement(null);
+      setEditingTextId(null);
+      setShapeToolbarPosition(null);
+      setToolbarPosition({ x: 0, y: 0 });
+      return;
+    }
+
+    const content = currentSlide.content || [];
+    const selectedId = selectedElement?.id;
+    const selectionStillValid =
+      selectedId && content.some((item) => item.id === selectedId);
+
+    if (selectionStillValid) {
+      if (selectedElement?.type === 'text') {
+        updateTextToolbarPosition(selectedElement.id);
+        setShapeToolbarPosition(null);
+      } else if (selectedElement?.type === 'shape') {
+        updateShapeToolbarPosition(selectedElement.id);
+        setToolbarPosition({ x: 0, y: 0 });
+      }
+      return;
+    }
+
+    setSelectedElement(null);
+    setHoveredElement(null);
+    setEditingTextId(null);
+    setShapeToolbarPosition(null);
+    setToolbarPosition({ x: 0, y: 0 });
+  }, [
+    currentSlide,
+    selectedElement,
+    updateShapeToolbarPosition,
+    updateTextToolbarPosition
+  ]);
+
+  useEffect(() => {
+    if (editingTextId && selectedElement?.id !== editingTextId) {
+      setEditingTextId(null);
+    }
+  }, [editingTextId, selectedElement?.id]);
+
+  useEffect(() => {
+    if (!editingTextId) {
+      return;
+    }
+    const slideContent = currentSlide?.content || [];
+    if (!slideContent.some((item) => item.id === editingTextId)) {
+      return;
+    }
+    focusTextElement(editingTextId);
+    updateTextToolbarPosition(editingTextId);
+  }, [currentSlide, editingTextId, focusTextElement, updateTextToolbarPosition]);
+
   const addElement = (type, subtype = null) => {
+    const defaultTextColor = isDarkHexColor(activeSlideBackground) ? '#f5f5f5' : '#111111';
+    const id = `element-${Date.now()}`;
+    let newElement = null;
+
+    // Default center position
+    const centerX = 120;
+    const centerY = 120;
+
     if (type === 'text') {
-      const defaultTextColor = isDarkHexColor(activeSlideBackground) ? '#f5f5f5' : '#111111';
-      const newElement = {
-        id: `element-${Date.now()}`,
+      newElement = {
+        id,
         type: 'text',
-        x: 120,
-        y: 120,
+        x: centerX,
+        y: centerY,
         width: 320,
         height: 60,
         fontSize: 20,
@@ -801,15 +949,81 @@ const PresentationApp = () => {
       });
 
       setSelectedElement(newElement);
+      setHoveredElement(newElement.id);
+      setEditingTextId(newElement.id);
+      focusTextElement(newElement.id);
+      updateTextToolbarPosition(newElement.id);
       setPendingInsert(null);
       setPendingInsertPos(null);
       setActiveDropdown(null);
       return;
     }
 
-    setPendingInsert({ type, subtype: subtype || null });
-    setPendingInsertPos(null);
-    setActiveDropdown(null);
+    if (type === 'shape') {
+      newElement = {
+        id,
+        type: 'shape',
+        shape: subtype || 'rectangle',
+        x: centerX,
+        y: centerY,
+        width: 160,
+        height: 100,
+        color: '#6b7280',
+        borderColor: '#6b7280',
+        borderWidth: 2
+      };
+    } else if (type === 'chart') {
+      const chartType = subtype || 'bar';
+      const defaultChart = createDefaultChartData(chartType);
+      const dimensions = CHART_DIMENSIONS[chartType] || { width: 360, height: 240 };
+      const clonedDatasets = (defaultChart.datasets || []).map((dataset) => ({
+        ...dataset,
+        data: Array.isArray(dataset.data) ? [...dataset.data] : []
+      }));
+
+      newElement = {
+        id,
+        type: 'chart',
+        x: centerX,
+        y: centerY,
+        width: dimensions.width,
+        height: dimensions.height,
+        chartType,
+        chartData: {
+          ...defaultChart,
+          datasets: clonedDatasets
+        }
+      };
+    } else if (type === 'image') {
+      // Directly open file picker for images
+      const id = `element-${Date.now()}`;
+      setPendingInsertPos({
+        x: centerX,
+        y: centerY,
+        id,
+        type: 'image',
+        subtype: subtype || null
+      });
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+        imageInputRef.current.click();
+      }
+      setActiveDropdown(null);
+      return;
+    }
+
+    if (newElement) {
+      updateSlide(currentSlideIndex, {
+        ...currentSlide,
+        content: [...(currentSlide.content || []), newElement]
+      });
+
+      setSelectedElement(newElement);
+      setHoveredElement(newElement.id);
+      setPendingInsert(null);
+      setPendingInsertPos(null);
+      setActiveDropdown(null);
+    }
   };
 
   const placeElementAt = (clientX, clientY, hostRect = null) => {
@@ -871,8 +1085,8 @@ const PresentationApp = () => {
           y,
           width: 160,
           height: 100,
-          color: '#3b82f6',
-          borderColor: '#3b82f6',
+          color: '#6b7280',
+          borderColor: '#6b7280',
           borderWidth: 2
         };
         break;
@@ -936,6 +1150,12 @@ const PresentationApp = () => {
         content: [...(currentSlide.content || []), newElement]
       });
       setSelectedElement(newElement);
+      if (newElement.type === 'text') {
+        setHoveredElement(newElement.id);
+        setEditingTextId(newElement.id);
+        focusTextElement(newElement.id);
+        updateTextToolbarPosition(newElement.id);
+      }
     }
 
     setPendingInsert(keepInsertEnabled ? nextInsertConfig : null);
@@ -961,7 +1181,14 @@ const PresentationApp = () => {
     const insertInfo = pendingInsertPos;
     const reader = new FileReader();
     reader.onload = (event) => {
-      const imageData = event.target.result;
+      const imageSrc = event.target.result;
+      const meta = {
+        src: imageSrc,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        uploadedAt: new Date().toISOString()
+      };
       const img = new Image();
       img.onload = () => {
         const aspectRatio = img.width / img.height;
@@ -978,7 +1205,8 @@ const PresentationApp = () => {
           y: insertInfo.y,
           width,
           height,
-          src: imageData,
+          src: imageSrc,
+          imageData: meta,
           alt: file.name
         };
         updateSlide(currentSlideIndex, {
@@ -991,7 +1219,7 @@ const PresentationApp = () => {
           setPendingInsert(null);
         }
       };
-      img.src = imageData;
+      img.src = imageSrc;
     };
     reader.readAsDataURL(file);
     if (imageInputRef.current) {
@@ -1084,62 +1312,174 @@ const PresentationApp = () => {
                             TEXT_TOOLBAR_HALF_WIDTH,
                             Math.min(centerX, slideRect.width - TEXT_TOOLBAR_HALF_WIDTH)
                           );
-                          const relativeTop = Math.max(rect.top - slideRect.top, 0);
+                          const relativeTop = Math.max(
+                            rect.top - slideRect.top - TEXT_TOOLBAR_VERTICAL_OFFSET,
+                            8
+                          );
                           setHoveredElement(element.id);
                           setToolbarPosition({
                             x: clampedX,
                             y: relativeTop
                           });
                         }
-                      }
-                      if (element.type === 'image') {
-                        setEditingImage(element.id);
+                      } else if (element.type === 'chart') {
+                        setHoveredElement(element.id);
+                        
+                        // Calculate position directly from the event
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        const slideRect = slideRef.current?.getBoundingClientRect();
+                        if (slideRect) {
+                          const centerX = rect.left - slideRect.left + rect.width / 2;
+                          const clampedX = Math.max(100, Math.min(centerX, slideRect.width - 100));
+                          const relativeTop = Math.max(rect.top - slideRect.top - 48, 8);
+                          
+                          setChartToolbarPosition({
+                            x: clampedX,
+                            y: relativeTop
+                          });
+                        }
+                        
+                        setToolbarPosition({ x: 0, y: 0 });
+                        setShapeToolbarPosition(null);
                       }
                     };
 
                     const handleWrapperEnter = (event) => {
-                      if (element.type !== 'text') {
+                      const slideRect = slideRef.current?.getBoundingClientRect();
+                      if (!slideRect) {
                         return;
                       }
+
                       const rect = event.currentTarget.getBoundingClientRect();
-                      const slideRect = slideRef.current?.getBoundingClientRect();
-                      if (slideRect) {
+
+                      if (element.type === 'text') {
                         const centerX = rect.left - slideRect.left + rect.width / 2;
                         const clampedX = Math.max(
                           TEXT_TOOLBAR_HALF_WIDTH,
                           Math.min(centerX, slideRect.width - TEXT_TOOLBAR_HALF_WIDTH)
                         );
-                        const relativeTop = Math.max(rect.top - slideRect.top, 0);
+                        const relativeTop = Math.max(
+                          rect.top - slideRect.top - TEXT_TOOLBAR_VERTICAL_OFFSET,
+                          8
+                        );
                         setHoveredElement(element.id);
                         setToolbarPosition({
                           x: clampedX,
                           y: relativeTop
                         });
-                      }
-                    };
-
-                    const handleWrapperLeave = () => {
-                      if (element.type !== 'text') {
+                        setShapeToolbarPosition(null);
                         return;
                       }
-                      if (selectedElement?.id === element.id) {
+
+                      if (element.type === 'shape') {
+                        const centerX = rect.left - slideRect.left + rect.width / 2;
+                        const clampedX = Math.max(24, Math.min(centerX, slideRect.width - 24));
+                        const relativeTop = Math.max(rect.top - slideRect.top, 0);
+                        setHoveredElement(element.id);
+                        setShapeToolbarPosition({
+                          x: clampedX,
+                          y: relativeTop
+                        });
+                        setToolbarPosition({ x: 0, y: 0 });
+                      }
+                    };
+
+                    const handleWrapperLeave = (event) => {
+                      if (element.type === 'text') {
+                        if (selectedElement?.id === element.id) {
+                          return;
+                        }
+                        const next = event?.relatedTarget;
+                        if (next && typeof next.closest === 'function' && next.closest('.text-toolbar-wrapper')) {
+                          return;
+                        }
+                        setHoveredElement((current) =>
+                          current === element.id ? null : current
+                        );
                         return;
                       }
-                      setHoveredElement(null);
+
+                      if (element.type === 'shape') {
+                        const next = event?.relatedTarget;
+                        if (
+                          next &&
+                          typeof next.closest === 'function' &&
+                          (next.closest('.shape-toolbar-wrapper') || next.closest('[data-shape-element="true"]'))
+                        ) {
+                          return;
+                        }
+                        setHoveredElement((current) => (current === element.id ? null : current));
+                        setShapeToolbarPosition(null);
+                      }
                     };
 
-                    const wrapperStyle = {
-                      position: 'absolute',
-                      left: `${element.x}px`,
-                      top: `${element.y}px`,
-                      width: element.width ? `${element.width}px` : 'auto',
-                      height: element.height ? `${element.height}px` : 'auto',
-                      zIndex: isSelected ? 2 : 1
-                    };
-
-                    if (element.type === 'text') {
-                      wrapperStyle.height = 'auto';
-                    }
+                    const numericX =
+                      typeof element.x === 'number' && Number.isFinite(element.x)
+                        ? element.x
+                        : 0;
+                    const numericY =
+                      typeof element.y === 'number' && Number.isFinite(element.y)
+                        ? element.y
+                        : 0;
+                    const chartConfig =
+                      element.chartData ||
+                      createDefaultChartData(element.chartType || 'bar');
+                    const chartType =
+                      chartConfig.type || element.chartType || 'bar';
+                    const presetDimensions =
+                      CHART_DIMENSIONS[chartType] || {};
+                    const defaultChartWidth = presetDimensions.width || 360;
+                    const defaultChartHeight = presetDimensions.height || 240;
+                    const elementWidth =
+                      typeof element.width === 'number' &&
+                      Number.isFinite(element.width)
+                        ? element.width
+                        : element.type === 'chart'
+                        ? defaultChartWidth
+                        : element.type === 'text'
+                        ? 320
+                        : element.type === 'image'
+                        ? 320
+                        : 240;
+                    const elementHeight =
+                      typeof element.height === 'number' &&
+                      Number.isFinite(element.height)
+                        ? element.height
+                        : element.type === 'text'
+                        ? 80
+                        : element.type === 'chart'
+                        ? defaultChartHeight
+                        : 160;
+                    const minWidth =
+                      element.type === 'text' ? MIN_TEXT_WIDTH : MIN_ELEMENT_SIZE;
+                    const minHeight =
+                      element.type === 'text'
+                        ? MIN_TEXT_HEIGHT
+                        : element.type === 'chart'
+                        ? MIN_CHART_HEIGHT
+                        : MIN_ELEMENT_SIZE;
+                    const lockAspectRatio =
+                      element.type === 'image' && element.maintainAspect
+                        ? (Number.isFinite(element.aspectRatio)
+                            ? element.aspectRatio
+                            : true)
+                        : false;
+                    const disableDragging =
+                      pendingInsert ||
+                      (element.type === 'text' && editingTextId === element.id) ||
+                      (element.type === 'image' && pendingInsert);
+                    const enableResizing = pendingInsert
+                      ? false
+                      : {
+                          top: true,
+                          right: true,
+                          bottom: true,
+                          left: true,
+                          topLeft: true,
+                          topRight: true,
+                          bottomLeft: true,
+                          bottomRight: true
+                        };
 
                     const renderContent = () => {
                       if (element.type === 'text') {
@@ -1153,27 +1493,29 @@ const PresentationApp = () => {
                             onFocus={() => {
                               setSelectedElement(element);
                               setHoveredElement(element.id);
+                              setEditingTextId(element.id);
+                              updateTextToolbarPosition(element.id);
                             }}
                             onBlur={() => {
-                              setHoveredElement((current) => (current === element.id ? null : current));
+                              setEditingTextId((current) =>
+                                current === element.id ? null : current
+                              );
+                              setHoveredElement((current) =>
+                                current === element.id ? null : current
+                              );
                             }}
                           />
                         );
                       }
 
                       if (element.type === 'chart') {
-                        const chartData = element.chartData || createDefaultChartData('bar');
-                        const presetDimensions = CHART_DIMENSIONS[element.chartData?.type || element.chartType || 'bar'] || {};
-                        const chartWidth = element.width || presetDimensions.width || 360;
-                        const chartHeight = element.height || presetDimensions.height || 240;
-
                         return (
                           <div className="chart-element-content">
                             <ChartComponent
-                              type={chartData.type || element.chartType || 'bar'}
+                              type={chartType}
                               data={{
-                                labels: chartData.labels,
-                                datasets: (chartData.datasets || []).map((dataset, index) => ({
+                                labels: chartConfig.labels,
+                                datasets: (chartConfig.datasets || []).map((dataset, index) => ({
                                   ...dataset,
                                   color: dataset.color || getPaletteColor(index)
                                 }))
@@ -1181,14 +1523,16 @@ const PresentationApp = () => {
                               options={{
                                 plugins: {
                                   title: {
-                                    display: !!chartData.title,
-                                    text: chartData.title || chartTypeLabels[chartData.type || element.chartType || 'bar']
+                                    display: !!chartConfig.title,
+                                    text:
+                                      chartConfig.title ||
+                                      chartTypeLabels[chartType]
                                   }
                                 }
                               }}
                               style={{
-                                width: `${chartWidth}px`,
-                                height: `${chartHeight}px`
+                                width: '100%',
+                                height: '100%'
                               }}
                             />
                           </div>
@@ -1249,6 +1593,8 @@ const PresentationApp = () => {
                               onUpdate={(updatedElement) => updateElement(element.id, updatedElement)}
                               onClose={() => setEditingImage(null)}
                               isEditing={editingImage === element.id}
+                              onDelete={() => deleteElement(element.id)}
+                              showDeleteButton={hoveredElement === element.id || selectedElement?.id === element.id}
                             />
                           </div>
                         );
@@ -1258,51 +1604,37 @@ const PresentationApp = () => {
                     };
 
                     return (
-                      <div
+                      <Rnd
                         key={element.id}
                         className={`slide-element-wrapper ${element.type} ${isSelected ? 'selected' : ''}`}
-                        style={wrapperStyle}
-                        onMouseDown={(e) => startDrag(e, element)}
+                        data-shape-element={element.type === 'shape' ? 'true' : undefined}
+                        innerRef={registerElementRef(element.id)}
+                        bounds="parent"
+                        size={{ width: elementWidth, height: elementHeight }}
+                        position={{ x: numericX, y: numericY }}
+                        minWidth={minWidth}
+                        minHeight={minHeight}
+                        lockAspectRatio={lockAspectRatio}
+                        disableDragging={disableDragging}
+                        enableResizing={enableResizing}
+                        style={{ zIndex: isSelected ? 2 : 1 }}
+                        onMouseDown={(event) => handleElementPointerDown(event, element)}
                         onClick={handleElementClick}
                         onMouseEnter={handleWrapperEnter}
                         onMouseLeave={handleWrapperLeave}
+                        onDragStart={() => handleDragStart(element)}
+                        onDragStop={(event, data) => handleDragStop(element, data)}
+                        onResizeStart={() => handleResizeStart(element)}
+                        onResizeStop={(event, direction, ref, delta, position) =>
+                          handleResizeStop(element, direction, ref, position)
+                        }
                       >
-                        {element.type === 'text' && (
-                        <button
-                          type="button"
-                          className="text-drag-handle"
-                          onMouseDown={(event) => startDrag(event, element)}
-                          aria-label="Drag text element"
-                        >
-                          ⠿
-                        </button>
-                      )}
-                      {renderContent()}
-                        {isSelected && element.type === 'chart' && (
-                          <div className="element-controls">
-                            <button
-                              type="button"
-                              className="element-control-button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setChartEditorId(element.id);
-                              }}
-                            >
-                              Edit Data
-                            </button>
-                            <button
-                              type="button"
-                              className="element-control-button delete"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                deleteElement(element.id);
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                        {isSelected && element.type !== 'chart' && element.type !== 'text' && (
+                        {renderContent()}
+                        {isSelected &&
+                          element.type !== 'chart' &&
+                          element.type !== 'text' &&
+                          element.type !== 'shape' &&
+                          element.type !== 'image' && (
                           <div className="element-controls">
                             <button
                               type="button"
@@ -1316,18 +1648,66 @@ const PresentationApp = () => {
                             </button>
                           </div>
                         )}
-                        {isSelected && element.type !== 'line' && (
-                          <button
-                            type="button"
-                            className="resize-handle"
-                            onMouseDown={(e) => startResize(e, element)}
-                            aria-label="Resize element"
-                            tabIndex={-1}
-                          />
-                        )}
-                      </div>
+                      </Rnd>
                     );
                   })}
+
+                  {selectedElement?.type === 'text' && (
+                    <TextToolbar
+                      element={selectedElement}
+                      onUpdate={updateElement}
+                      onDelete={deleteElement}
+                      position={{ x: toolbarPosition.x, y: toolbarPosition.y }}
+                      isVisible
+                    />
+                  )}
+
+                  {shapeToolbarPosition && activeShapeElement && (
+                    <ShapeToolbar
+                      element={activeShapeElement}
+                      onUpdate={updateElement}
+                      onDelete={deleteElement}
+                      position={shapeToolbarPosition}
+                      isVisible
+                      onDismiss={() => {
+                        setShapeToolbarPosition(null);
+                        setHoveredElement(null);
+                      }}
+                    />
+                  )}
+
+                  {chartToolbarPosition && selectedElement?.type === 'chart' && (
+                    <ChartToolbar
+                      element={selectedElement}
+                      position={chartToolbarPosition}
+                      isVisible
+                      onChangeType={(id, type) => {
+                        const currentChartData = selectedElement.chartData || {};
+                        const defaultData = createDefaultChartData(type);
+                        
+                        // For columnLine, use default datasets to ensure proper variants
+                        const updatedDatasets = type === 'columnLine' 
+                          ? defaultData.datasets 
+                          : currentChartData.datasets;
+                        
+                        updateElement(id, { 
+                          chartType: type,
+                          chartData: {
+                            ...currentChartData,
+                            type: type,
+                            title: defaultData.title,
+                            datasets: updatedDatasets
+                          }
+                        });
+                      }}
+                      onEditData={() => setChartEditorId(selectedElement.id)}
+                      onDelete={() => deleteElement(selectedElement.id)}
+                      onDismiss={() => {
+                        setChartToolbarPosition(null);
+                        setHoveredElement(null);
+                      }}
+                    />
+                  )}
 
                   {pendingInsert && (
                     <div className="insert-hint">
@@ -1338,7 +1718,6 @@ const PresentationApp = () => {
                     </div>
                   )}
 
-                  {/* Text toolbar removed in favor of TipTap bubble menu */}
                 </div>
                 <input
                   type="file"
@@ -1373,7 +1752,7 @@ const PresentationApp = () => {
                 {currentSlide.content?.map((element) => {
                   if (element.type === 'text') {
                     return (
-                      <div 
+                      <div
                         key={element.id}
                         className="slide-element"
                         style={{
@@ -1393,9 +1772,8 @@ const PresentationApp = () => {
                           alignItems: 'center',
                           justifyContent: element.textAlign === 'center' ? 'center' : 'flex-start'
                         }}
-                      >
-                        {element.text}
-                      </div>
+                        dangerouslySetInnerHTML={{ __html: element.text || '' }}
+                      />
                     );
                   } else if (element.type === 'shape') {
                     const getShapeStyle = () => {
@@ -1420,19 +1798,16 @@ const PresentationApp = () => {
                         case 'triangle':
                           return {
                             ...baseStyle,
-                            backgroundColor: 'transparent',
                             clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)'
                           };
                         case 'arrow':
                           return {
                             ...baseStyle,
-                            backgroundColor: 'transparent',
                             clipPath: 'polygon(0% 20%, 60% 20%, 60% 0%, 100% 50%, 60% 100%, 60% 80%, 0% 80%)'
                           };
                         case 'star':
                           return {
                             ...baseStyle,
-                            backgroundColor: 'transparent',
                             clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
                           };
                         case 'line':

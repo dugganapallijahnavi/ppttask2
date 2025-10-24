@@ -44,6 +44,20 @@ const determineFontFace = (fontFamily) => {
   return fontFamily.split(',')[0].replace(/["']/g, '').trim() || 'Segoe UI';
 };
 
+const htmlToPlainText = (value) => {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+
+  return value
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|li)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
 const getTextOptions = (item) => {
   const fontSize = Number(item.fontSize) || 18;
   return {
@@ -67,7 +81,8 @@ const addTextElements = (pptSlide, slide) => {
     if (item?.type !== 'text') {
       return;
     }
-    const text = item.text?.trim();
+    const rawHtml = item.text || '';
+    const text = (item.plainText ?? htmlToPlainText(rawHtml)).trim();
     if (!text) {
       return;
     }
