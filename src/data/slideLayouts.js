@@ -56,32 +56,37 @@ export const SLIDE_LAYOUTS = [
     background: '#ffffff',
     previewBlocks: [
       {
-        width: '76%',
+        width: '80%',
         height: '18%',
-        top: '20%',
-        left: '12%',
+        top: '22%',
+        left: '10%',
         variant: 'title'
       },
       {
-        width: '58%',
+        width: '70%',
         height: '12%',
-        top: '50%',
-        left: '12%',
+        top: '52%',
+        left: '15%',
         variant: 'subtitle'
       }
     ],
     createContent: () => [
       createTextElement('Add a compelling headline', {
-        y: 140,
-        fontSize: 56,
+        x: 120,
+        y: 150,
+        width: 720,
+        fontSize: 52,
         fontWeight: 600,
         textStyle: 'heading',
-        width: 620
+        textAlign: 'center'
       }),
       createParagraphElement('Add a supporting subtitle', {
+        x: 120,
         y: 320,
-        fontSize: 24,
-        color: '#374151'
+        width: 720,
+        fontSize: 22,
+        color: '#374151',
+        textAlign: 'center'
       })
     ]
   },

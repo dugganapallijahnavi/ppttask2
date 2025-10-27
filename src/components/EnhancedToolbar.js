@@ -178,14 +178,6 @@ const EnhancedToolbar = ({
           ))}
         </div>
       )}
-      <label className="dropdown-toggle-row">
-        <input
-          type="checkbox"
-          checked={keepInsertEnabled}
-          onChange={(event) => onToggleKeepInsert?.(event.target.checked)}
-        />
-        Keep inserting
-      </label>
     </div>
   );
 
