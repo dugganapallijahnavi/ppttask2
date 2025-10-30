@@ -5,15 +5,18 @@ import { Rnd } from 'react-rnd';
 import ChartComponent from './ChartComponent';
 import ChartDataEditor from './ChartDataEditor';
 import ImageComponent from './ImageComponent';
+import TableComponent from './TableComponent';
 import RichTextEditor from './RichTextEditor';
 import TextToolbar from './TextToolbar';
 import ShapeToolbar from './ShapeToolbar';
 import ChartToolbar from './ChartToolbar';
+import TableToolbar from './TableToolbar';
 
 import SlidePanel from './SlidePanel';
 import EnhancedToolbar from './EnhancedToolbar';
 import { createSlideFromLayout } from '../data/slideLayouts';
 import { exportSlidesAsPptx } from '../utils/pptxExport';
+import * as htmlToImage from 'html-to-image';
 
 const DEFAULT_BACKGROUND = '#ffffff';
 const TEXT_TOOLBAR_HALF_WIDTH = 200;
@@ -22,65 +25,9 @@ const MIN_TEXT_WIDTH = 120;
 const MIN_TEXT_HEIGHT = 40;
 const MIN_ELEMENT_SIZE = 60;
 const MIN_CHART_HEIGHT = 120;
-
-// Theme definitions
-const themes = {
-  minimal: {
-    name: 'Minimal',
-    colors: {
-      primary: '#111827',
-      secondary: '#1f2933',
-      accent: '#000000',
-      background: '#ffffff'
-    }
-  },
-  newClassic: {
-    name: 'New classic',
-    colors: {
-      primary: '#f3f4f6',
-      secondary: '#94a3b8',
-      accent: '#0f766e',
-      background: '#0b0d16'
-    }
-  },
-  retroTech: {
-    name: 'Retro tech',
-    colors: {
-      primary: '#111827',
-      secondary: '#1f2937',
-      accent: '#14b8a6',
-      background: '#f8fafc'
-    }
-  },
-  boldMinimalist: {
-    name: 'Bold minimalist',
-    colors: {
-      primary: '#ffffff',
-      secondary: '#e0e7ff',
-      accent: '#ffffff',
-      background: '#1e3a8a'
-    }
-  },
-  modernTech: {
-    name: 'Modern tech',
-    colors: {
-      primary: '#e2e8f0',
-      secondary: '#94a3b8',
-      accent: '#6366f1',
-      background: '#111827'
-    }
-  }
-};
-
-// Background color options
-const backgroundColors = [
-  '#000000', '#1a1a1a', '#2a2a2a', '#333333',
-  '#ffffff', '#f5f5f5', '#e5e5e5', '#d4d4d4',
-  '#bbbbbb', '#999999', '#777777', '#555555',
-  '#444444', '#3d3d3d', '#2f2f2f', '#1f1f1f',
-  '#1e40af', '#2563eb', '#38bdf8', '#0ea5e9',
-  '#f97316', '#fb7185', '#facc15', '#22c55e'
-];
+const MIN_TABLE_WIDTH = 200;
+const MIN_TABLE_HEIGHT = 120;
+const THUMBNAIL_PIXEL_RATIO = 0.25;
 
 const CHART_COLOR_PALETTE = [
   '#111111',
@@ -286,6 +233,76 @@ const createDefaultChartData = (chartType) => {
   }
 };
 
+// Deep clone utility for slides - optimized
+const deepCloneSlides = (slides) => {
+  if (!slides || !Array.isArray(slides)) return [];
+  
+  return slides.map(slide => {
+    const clonedSlide = {
+      ...slide,
+      background: typeof slide.background === 'object' && slide.background !== null
+        ? { ...slide.background }
+        : slide.background
+    };
+    
+    if (slide.content && slide.content.length > 0) {
+      clonedSlide.content = slide.content.map(item => {
+        const clonedItem = { ...item };
+        
+        // Deep clone chartData if it exists
+        if (item.chartData) {
+          const cd = item.chartData;
+          clonedItem.chartData = {
+            type: cd.type,
+            title: cd.title,
+            labels: cd.labels ? [...cd.labels] : [],
+            datasets: cd.datasets ? cd.datasets.map(ds => ({
+              id: ds.id,
+              label: ds.label,
+              data: ds.data ? [...ds.data] : [],
+              color: ds.color,
+              variant: ds.variant,
+              fill: ds.fill,
+              segmentColors: ds.segmentColors ? [...ds.segmentColors] : undefined
+            })) : []
+          };
+        }
+        
+        // Deep clone imageData if it exists
+        if (item.imageData) {
+          clonedItem.imageData = { ...item.imageData };
+        }
+        
+        return clonedItem;
+      });
+    } else {
+      clonedSlide.content = [];
+    }
+    
+    return clonedSlide;
+  });
+};
+
+// Optimized hash computation - only compute hash of essential properties
+const computeSlidesHash = (slides) => {
+  if (!Array.isArray(slides)) {
+    return '[]';
+  }
+
+  try {
+    // Only hash essential properties to reduce computation time
+    const essentialData = slides.map(slide => ({
+      id: slide.id,
+      contentLength: slide.content?.length || 0,
+      contentIds: slide.content?.map(el => el.id).join(',') || '',
+      background: slide.background
+    }));
+    return JSON.stringify(essentialData);
+  } catch (error) {
+    return '[]';
+  }
+};
+
 const createSlide = (index, layoutId = 'title') => {
   const slideData = createSlideFromLayout(layoutId);
   const layoutBackground =
@@ -325,16 +342,22 @@ const PresentationApp = () => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isSlideshow, setIsSlideshow] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
-  const [currentTheme, setCurrentTheme] = useState('minimal');
   const [hoveredElement, setHoveredElement] = useState(null);
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
   const [shapeToolbarPosition, setShapeToolbarPosition] = useState(null);
   const [chartToolbarPosition, setChartToolbarPosition] = useState(null);
+  const [tableToolbarPosition, setTableToolbarPosition] = useState(null);
   const [editingImage, setEditingImage] = useState(null);
   const [chartEditorId, setChartEditorId] = useState(null);
   const [selectedElement, setSelectedElement] = useState(null);
   const [editingTextId, setEditingTextId] = useState(null);
+  const [textEditors, setTextEditors] = useState({});
+  const [thumbnails, setThumbnails] = useState({});
   const [keepInsertEnabled, setKeepInsertEnabled] = useState(false);
+  const [fileName, setFileName] = useState('untitled');
+  // Undo/Redo history
+  const [history, setHistory] = useState([[createSlide(0, 'title')]]);
+  const [historyIndex, setHistoryIndex] = useState(0);
   // Defer element placement until user clicks on slide
   const [pendingInsert, setPendingInsert] = useState(null);
   const [pendingInsertPos, setPendingInsertPos] = useState(null);
@@ -345,6 +368,78 @@ const PresentationApp = () => {
   }, []);
   const slideRef = useRef(null);
   const elementRefs = useRef({});
+  const thumbnailCaptureFrame = useRef(null);
+  const thumbnailDebounceTimeout = useRef(null);
+  const isUndoRedoAction = useRef(false);
+  const historyTimeoutRef = useRef(null);
+  const lastSavedStateRef = useRef(null);
+
+  // Add to history
+  const addToHistory = useCallback((newSlides) => {
+    if (isUndoRedoAction.current) {
+      isUndoRedoAction.current = false;
+      return;
+    }
+    if (!newSlides || !Array.isArray(newSlides)) {
+      return;
+    }
+    setHistory((prev) => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      // Deep clone the slides
+      const clonedSlides = deepCloneSlides(newSlides);
+      newHistory.push(clonedSlides);
+      // Limit history to 30 states for better performance
+      if (newHistory.length > 30) {
+        newHistory.shift();
+        return newHistory;
+      }
+      return newHistory;
+    });
+    setHistoryIndex((prev) => {
+      const newIndex = prev + 1;
+      return newIndex >= 30 ? 29 : newIndex;
+    });
+  }, [historyIndex]);
+
+  // Undo function
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0 && history[historyIndex - 1]) {
+      if (historyTimeoutRef.current) {
+        clearTimeout(historyTimeoutRef.current);
+        historyTimeoutRef.current = null;
+      }
+      isUndoRedoAction.current = true;
+      const prevState = history[historyIndex - 1];
+      // Clone to prevent reference issues
+      const restoredState = deepCloneSlides(prevState);
+      setSlides(restoredState);
+      setHistoryIndex((prev) => prev - 1);
+      setSelectedElement(null);
+      setEditingTextId(null);
+      setShapeToolbarPosition(null);
+      setChartToolbarPosition(null);
+    }
+  }, [history, historyIndex]);
+
+  // Redo function
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1 && history[historyIndex + 1]) {
+      if (historyTimeoutRef.current) {
+        clearTimeout(historyTimeoutRef.current);
+        historyTimeoutRef.current = null;
+      }
+      isUndoRedoAction.current = true;
+      const nextState = history[historyIndex + 1];
+      // Clone to prevent reference issues
+      const restoredState = deepCloneSlides(nextState);
+      setSlides(restoredState);
+      setHistoryIndex((prev) => prev + 1);
+      setSelectedElement(null);
+      setEditingTextId(null);
+      setShapeToolbarPosition(null);
+      setChartToolbarPosition(null);
+    }
+  }, [history, historyIndex]);
 
   const registerElementRef = useCallback(
     (id) => (node) => {
@@ -452,9 +547,43 @@ const PresentationApp = () => {
     []
   );
 
+  const updateTableToolbarPosition = useCallback(
+    (elementId) => {
+      const slideNode = slideRef.current;
+      const elementNode = elementRefs.current[elementId];
+      if (!slideNode || !elementNode) {
+        return;
+      }
+
+      const slideRect = slideNode.getBoundingClientRect();
+      const elementRect = elementNode.getBoundingClientRect();
+      const centerX = elementRect.left - slideRect.left + elementRect.width / 2;
+      const clampedX = Math.max(100, Math.min(centerX, slideRect.width - 100));
+      const relativeTop = Math.max(elementRect.top - slideRect.top - 56, 8);
+
+      setTableToolbarPosition({
+        x: clampedX,
+        y: relativeTop
+      });
+    },
+    []
+  );
+
   // Keyboard navigation and click outside
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Undo/Redo shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+
       const isNextKey =
         e.key === 'ArrowDown' ||
         (isSlideshow && e.key === 'ArrowRight');
@@ -507,47 +636,165 @@ const PresentationApp = () => {
     activeDropdown,
     editingImage,
     pendingInsert,
-    cancelPendingInsert
+    cancelPendingInsert,
+    handleUndo,
+    handleRedo
   ]);
 
-  const addSlide = (layoutId = 'title') => {
-    const newSlide = createSlide(slides.length, layoutId);
-    setSlides([...slides, newSlide]);
-    setCurrentSlideIndex(slides.length);
-  };
+  const addSlide = useCallback((layoutId = 'title', insertIndex) => {
+    const targetIndex = Number.isFinite(insertIndex) ? insertIndex : slides.length;
+    const clampedIndex = Math.min(Math.max(targetIndex, 0), slides.length);
+    const newSlide = createSlide(clampedIndex, layoutId);
+    const nextSlides = [...slides];
+    nextSlides.splice(clampedIndex, 0, newSlide);
 
+    const renumberedSlides = nextSlides.map((slide, idx) => (
+      typeof slide.title === 'string' && /^Slide \d+$/.test(slide.title)
+        ? { ...slide, title: `Slide ${idx + 1}` }
+        : slide
+    ));
 
-  const deleteSlide = (index) => {
-    if (slides.length <= 1) return;
-    
-    const newSlides = slides.filter((_, i) => i !== index);
-    setSlides(newSlides);
-    
-    if (currentSlideIndex >= newSlides.length) {
-      setCurrentSlideIndex(newSlides.length - 1);
+    setSlides(renumberedSlides);
+    setCurrentSlideIndex(clampedIndex);
+  }, [slides]);
+
+  const deleteSlide = useCallback((index) => {
+    if (slides.length <= 1) {
+      return;
+    }
+
+    const nextSlides = slides.filter((_, i) => i !== index);
+    const renumberedSlides = nextSlides.map((slide, idx) => (
+      typeof slide.title === 'string' && /^Slide \d+$/.test(slide.title)
+        ? { ...slide, title: `Slide ${idx + 1}` }
+        : slide
+    ));
+
+    setSlides(renumberedSlides);
+
+    if (!renumberedSlides.length) {
+      setCurrentSlideIndex(0);
+    } else if (currentSlideIndex >= renumberedSlides.length) {
+      setCurrentSlideIndex(renumberedSlides.length - 1);
     } else if (currentSlideIndex > index) {
       setCurrentSlideIndex(currentSlideIndex - 1);
     }
-  };
+  }, [slides, currentSlideIndex]);
 
-  const moveSlide = (fromIndex, toIndex) => {
-    if (fromIndex === toIndex) return;
-    
-    const newSlides = [...slides];
-    const [movedSlide] = newSlides.splice(fromIndex, 1);
-    newSlides.splice(toIndex, 0, movedSlide);
-    
-    setSlides(newSlides);
-    
-    // Update current slide index
-    if (fromIndex === currentSlideIndex) {
-      setCurrentSlideIndex(toIndex);
-    } else if (fromIndex < currentSlideIndex && toIndex >= currentSlideIndex) {
-      setCurrentSlideIndex(currentSlideIndex - 1);
-    } else if (fromIndex > currentSlideIndex && toIndex <= currentSlideIndex) {
-      setCurrentSlideIndex(currentSlideIndex + 1);
+  const moveSlide = useCallback((fromIndex, toIndex) => {
+    if (fromIndex === toIndex) {
+      return;
     }
-  };
+
+    const nextSlides = [...slides];
+    const [movedSlide] = nextSlides.splice(fromIndex, 1);
+
+    if (!movedSlide) {
+      return;
+    }
+
+    const clampedIndex = Math.max(0, Math.min(toIndex, nextSlides.length));
+    nextSlides.splice(clampedIndex, 0, movedSlide);
+
+    const renumberedSlides = nextSlides.map((slide, idx) => (
+      typeof slide.title === 'string' && /^Slide \d+$/.test(slide.title)
+        ? { ...slide, title: `Slide ${idx + 1}` }
+        : slide
+    ));
+
+    setSlides(renumberedSlides);
+
+    if (fromIndex === currentSlideIndex) {
+      setCurrentSlideIndex(clampedIndex);
+    } else if (fromIndex < currentSlideIndex && clampedIndex >= currentSlideIndex) {
+      setCurrentSlideIndex(Math.max(0, currentSlideIndex - 1));
+    } else if (fromIndex > currentSlideIndex && clampedIndex <= currentSlideIndex) {
+      setCurrentSlideIndex(Math.min(renumberedSlides.length - 1, currentSlideIndex + 1));
+    }
+  }, [slides, currentSlideIndex]);
+
+  const captureThumbnail = useCallback(() => {
+    const node = slideRef.current;
+    const slide = slides[currentSlideIndex];
+    if (!node || !slide || isSlideshow) {
+      return;
+    }
+
+    if (thumbnailCaptureFrame.current) {
+      cancelAnimationFrame(thumbnailCaptureFrame.current);
+      thumbnailCaptureFrame.current = null;
+    }
+
+    thumbnailCaptureFrame.current = requestAnimationFrame(() => {
+      const width = node.clientWidth || node.offsetWidth;
+      const height = node.clientHeight || node.offsetHeight;
+      if (!width || !height) {
+        return;
+      }
+
+      const backgroundColor =
+        typeof slide.background === 'string'
+          ? slide.background
+          : slide.background?.color || DEFAULT_BACKGROUND;
+
+      const filterNode = (el) => {
+        try {
+          const cls = el?.classList;
+          if (!cls) return true;
+          if (
+            cls.contains('text-toolbar-wrapper') ||
+            cls.contains('shape-toolbar-wrapper') ||
+            cls.contains('chart-toolbar-wrapper') ||
+            cls.contains('image-delete-button') ||
+            cls.contains('element-controls') ||
+            cls.contains('react-rnd-handle')
+          ) {
+            return false;
+          }
+        } catch (_) {
+          // ignore
+        }
+        return true;
+      };
+
+      htmlToImage
+        .toPng(node, {
+          cacheBust: true,
+          backgroundColor,
+          width,
+          height,
+          pixelRatio: THUMBNAIL_PIXEL_RATIO,
+          filter: filterNode
+        })
+        .then((dataUrl) => {
+          setThumbnails((prev) => {
+            if (prev[slide.id] === dataUrl) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [slide.id]: dataUrl
+            };
+          });
+        })
+        .catch((error) => {
+          console.error('Failed to capture slide thumbnail', error);
+        });
+    });
+  }, [slides, currentSlideIndex, isSlideshow]);
+
+  // Debounced scheduler for thumbnails to avoid heavy captures on every keystroke
+  const scheduleThumbnailCapture = useCallback(() => {
+    if (thumbnailDebounceTimeout.current) {
+      clearTimeout(thumbnailDebounceTimeout.current);
+      thumbnailDebounceTimeout.current = null;
+    }
+    // Increased debounce time to 800ms for better performance
+    thumbnailDebounceTimeout.current = setTimeout(() => {
+      captureThumbnail();
+      thumbnailDebounceTimeout.current = null;
+    }, 800);
+  }, [captureThumbnail]);
 
   const updateSlide = useCallback((index, updatedSlide) => {
     setSlides((prevSlides) => {
@@ -555,7 +802,8 @@ const PresentationApp = () => {
       nextSlides[index] = updatedSlide;
       return nextSlides;
     });
-  }, []);
+    scheduleThumbnailCapture();
+  }, [scheduleThumbnailCapture]);
 
   const updateElement = useCallback((elementId, updates) => {
     setSlides((prevSlides) => {
@@ -574,7 +822,8 @@ const PresentationApp = () => {
     setSelectedElement((current) =>
       current && current.id === elementId ? { ...current, ...updates } : current
     );
-  }, [currentSlideIndex]);
+    scheduleThumbnailCapture();
+  }, [currentSlideIndex, scheduleThumbnailCapture]);
 
   const handleElementPointerDown = useCallback(
     (event, element) => {
@@ -587,12 +836,18 @@ const PresentationApp = () => {
         setHoveredElement(element.id);
         updateTextToolbarPosition(element.id);
         setShapeToolbarPosition(null);
+        setTableToolbarPosition(null);
       } else if (element.type === 'shape') {
         updateShapeToolbarPosition(element.id);
         setToolbarPosition({ x: 0, y: 0 });
+        setTableToolbarPosition(null);
+      } else if (element.type === 'table') {
+        updateTableToolbarPosition(element.id);
+        setToolbarPosition({ x: 0, y: 0 });
+        setShapeToolbarPosition(null);
       }
     },
-    [pendingInsert, updateShapeToolbarPosition, updateTextToolbarPosition]
+    [pendingInsert, updateShapeToolbarPosition, updateTextToolbarPosition, updateTableToolbarPosition]
   );
 
   const handleDragStart = useCallback(
@@ -605,9 +860,15 @@ const PresentationApp = () => {
         setHoveredElement(element.id);
         updateTextToolbarPosition(element.id);
         setShapeToolbarPosition(null);
+        setTableToolbarPosition(null);
       } else if (element.type === 'shape') {
         updateShapeToolbarPosition(element.id);
         setToolbarPosition({ x: 0, y: 0 });
+        setTableToolbarPosition(null);
+      } else if (element.type === 'table') {
+        updateTableToolbarPosition(element.id);
+        setToolbarPosition({ x: 0, y: 0 });
+        setShapeToolbarPosition(null);
       }
       setEditingTextId((current) => (current === element.id ? null : current));
       if (typeof document !== 'undefined') {
@@ -615,7 +876,7 @@ const PresentationApp = () => {
         document.body.style.cursor = 'grabbing';
       }
     },
-    [pendingInsert, updateShapeToolbarPosition, updateTextToolbarPosition]
+    [pendingInsert, updateShapeToolbarPosition, updateTextToolbarPosition, updateTableToolbarPosition]
   );
 
   const handleDragStop = useCallback(
@@ -632,13 +893,15 @@ const PresentationApp = () => {
         updateTextToolbarPosition(element.id);
       } else if (element.type === 'shape') {
         updateShapeToolbarPosition(element.id);
+      } else if (element.type === 'table') {
+        updateTableToolbarPosition(element.id);
       }
       updateElement(element.id, {
         x: Math.round(position.x),
         y: Math.round(position.y)
       });
     },
-    [pendingInsert, updateElement, updateShapeToolbarPosition, updateTextToolbarPosition]
+    [pendingInsert, updateElement, updateShapeToolbarPosition, updateTextToolbarPosition, updateTableToolbarPosition]
   );
 
   const handleResizeStart = useCallback(
@@ -651,9 +914,15 @@ const PresentationApp = () => {
         setHoveredElement(element.id);
         updateTextToolbarPosition(element.id);
         setShapeToolbarPosition(null);
+        setTableToolbarPosition(null);
       } else if (element.type === 'shape') {
         updateShapeToolbarPosition(element.id);
         setToolbarPosition({ x: 0, y: 0 });
+        setTableToolbarPosition(null);
+      } else if (element.type === 'table') {
+        updateTableToolbarPosition(element.id);
+        setToolbarPosition({ x: 0, y: 0 });
+        setShapeToolbarPosition(null);
       }
       setEditingTextId((current) => (current === element.id ? null : current));
       if (typeof document !== 'undefined') {
@@ -661,7 +930,7 @@ const PresentationApp = () => {
         document.body.style.cursor = 'nwse-resize';
       }
     },
-    [pendingInsert, updateShapeToolbarPosition, updateTextToolbarPosition]
+    [pendingInsert, updateShapeToolbarPosition, updateTextToolbarPosition, updateTableToolbarPosition]
   );
 
   const handleResizeStop = useCallback(
@@ -676,12 +945,18 @@ const PresentationApp = () => {
       const widthValue = Number.parseFloat(ref.style.width);
       const heightValue = Number.parseFloat(ref.style.height);
       const fallbackWidth =
-        element.type === 'text' ? MIN_TEXT_WIDTH : MIN_ELEMENT_SIZE;
+        element.type === 'text' 
+          ? MIN_TEXT_WIDTH 
+          : element.type === 'table'
+          ? MIN_TABLE_WIDTH
+          : MIN_ELEMENT_SIZE;
       const fallbackHeight =
         element.type === 'text'
           ? MIN_TEXT_HEIGHT
           : element.type === 'chart'
           ? MIN_CHART_HEIGHT
+          : element.type === 'table'
+          ? MIN_TABLE_HEIGHT
           : MIN_ELEMENT_SIZE;
 
       const previousLeft =
@@ -730,9 +1005,11 @@ const PresentationApp = () => {
         updateTextToolbarPosition(element.id);
       } else if (element.type === 'shape') {
         updateShapeToolbarPosition(element.id);
+      } else if (element.type === 'table') {
+        updateTableToolbarPosition(element.id);
       }
     },
-    [pendingInsert, updateElement, updateShapeToolbarPosition, updateTextToolbarPosition]
+    [pendingInsert, updateElement, updateShapeToolbarPosition, updateTextToolbarPosition, updateTableToolbarPosition]
   );
 
   const deleteElement = useCallback((elementId) => {
@@ -759,6 +1036,12 @@ const PresentationApp = () => {
       setEditingImage(null);
     }
     setChartEditorId((current) => (current === elementId ? null : current));
+    
+    // Clean up text editor instance
+    setTextEditors((prev) => {
+      const { [elementId]: removed, ...rest } = prev;
+      return rest;
+    });
   }, [currentSlideIndex, editingImage, selectedElement]);
 
   const currentSlide = useMemo(
@@ -810,6 +1093,58 @@ const PresentationApp = () => {
     }
   }, [chartEditorId, chartEditorElement]);
 
+  // Track slides changes for history with debouncing
+  useEffect(() => {
+    if (!slides || slides.length === 0) {
+      return undefined;
+    }
+
+    const currentHash = computeSlidesHash(slides);
+
+    if (isUndoRedoAction.current) {
+      if (historyTimeoutRef.current) {
+        clearTimeout(historyTimeoutRef.current);
+        historyTimeoutRef.current = null;
+      }
+      lastSavedStateRef.current = currentHash;
+      isUndoRedoAction.current = false;
+      return undefined;
+    }
+
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current);
+    }
+
+    historyTimeoutRef.current = setTimeout(() => {
+      if (lastSavedStateRef.current !== currentHash) {
+        addToHistory(slides);
+        lastSavedStateRef.current = currentHash;
+      }
+      historyTimeoutRef.current = null;
+    }, 500);
+
+    return () => {
+      if (historyTimeoutRef.current) {
+        clearTimeout(historyTimeoutRef.current);
+        historyTimeoutRef.current = null;
+      }
+    };
+  }, [slides, addToHistory]);
+
+  useEffect(() => {
+    scheduleThumbnailCapture();
+    return () => {
+      if (thumbnailCaptureFrame.current) {
+        cancelAnimationFrame(thumbnailCaptureFrame.current);
+        thumbnailCaptureFrame.current = null;
+      }
+      if (thumbnailDebounceTimeout.current) {
+        clearTimeout(thumbnailDebounceTimeout.current);
+        thumbnailDebounceTimeout.current = null;
+      }
+    };
+  }, [scheduleThumbnailCapture]);
+
   const closeChartEditor = useCallback(() => setChartEditorId(null), []);
 
   const handleChartEditorSave = useCallback((updatedChartData) => {
@@ -823,6 +1158,16 @@ const PresentationApp = () => {
     setChartEditorId(null);
   }, [chartEditorElement, updateElement]);
 
+  const handleChartEditorChange = useCallback((updatedChartData) => {
+    if (!chartEditorElement) {
+      return;
+    }
+    updateElement(chartEditorElement.id, {
+      chartData: updatedChartData,
+      chartType: updatedChartData.type || chartEditorElement.chartType || 'bar'
+    });
+  }, [chartEditorElement, updateElement]);
+
   const describeInsertTarget = (config) => {
     if (!config) {
       return '';
@@ -832,30 +1177,6 @@ const PresentationApp = () => {
       return toTitle(config.subtype || 'shape');
     }
     return toTitle(config.type);
-  };
-
-  const changeBackgroundColor = (color) => {
-    updateSlide(currentSlideIndex, {
-      ...currentSlide,
-      background: { ...currentSlide.background, color }
-    });
-  };
-
-  const applyTheme = (themeId) => {
-    const theme = themes[themeId];
-    setCurrentTheme(themeId);
-    
-    // Apply theme to current slide
-    updateSlide(currentSlideIndex, {
-      ...currentSlide,
-      background: { ...currentSlide.background, color: theme.colors.background },
-      content: currentSlide.content?.map(el => ({
-        ...el,
-        color: el.type === 'text' ? theme.colors.primary : el.color
-      }))
-    });
-    
-    setActiveDropdown(null);
   };
 
   useEffect(() => {
@@ -914,7 +1235,7 @@ const PresentationApp = () => {
     updateTextToolbarPosition(editingTextId);
   }, [currentSlide, editingTextId, focusTextElement, updateTextToolbarPosition]);
 
-  const addElement = (type, subtype = null) => {
+  const addElement = (type, subtype = null, options = {}) => {
     const defaultTextColor = isDarkHexColor(activeSlideBackground) ? '#f5f5f5' : '#111111';
     const id = `element-${Date.now()}`;
     let newElement = null;
@@ -1011,6 +1332,34 @@ const PresentationApp = () => {
       }
       setActiveDropdown(null);
       return;
+    } else if (type === 'table') {
+      const rows = options.rows || 3;
+      const cols = options.cols || 3;
+      
+      newElement = {
+        id,
+        type: 'table',
+        x: centerX,
+        y: centerY,
+        width: Math.max(200, cols * 100),
+        height: Math.max(150, rows * 50),
+        tableData: {
+          rows: rows,
+          cols: cols,
+          cells: Array(rows).fill(null).map(() => Array(cols).fill('')),
+          headerRow: true,
+          headerCol: false,
+          borderStyle: 'all',
+          borderColor: '#d1d5db',
+          headerBgColor: '#f3f4f6',
+          cellBgColor: '#ffffff',
+          textColor: '#111827',
+          fontSize: 14,
+          cellPadding: 8,
+          colWidths: Array(cols).fill(100),
+          rowHeights: Array(rows).fill(50)
+        }
+      };
     }
 
     if (newElement) {
@@ -1231,13 +1580,14 @@ const PresentationApp = () => {
 
   const savePresentation = useCallback(async () => {
     try {
-      await exportSlidesAsPptx(slides, 'presentation.pptx');
+      const sanitizedFileName = fileName.trim() || 'untitled';
+      await exportSlidesAsPptx(slides, `${sanitizedFileName}.pptx`);
       setActiveDropdown(null);
     } catch (error) {
       console.error('Failed to export presentation', error);
       window.alert('Unable to export the presentation. Please try again.');
     }
-  }, [slides]);
+  }, [slides, fileName]);
 
   return (
     <>
@@ -1247,16 +1597,16 @@ const PresentationApp = () => {
             {/* Enhanced Toolbar */}
             <EnhancedToolbar
               onInsertElement={addElement}
-              onBackgroundChange={changeBackgroundColor}
-              onThemeChange={applyTheme}
               onSavePresentation={savePresentation}
               onStartSlideshow={() => setIsSlideshow(true)}
-              currentBackground={currentSlide.background?.color || DEFAULT_BACKGROUND}
-              currentTheme={currentTheme}
-              themes={Object.entries(themes).map(([id, theme]) => ({ id, ...theme }))}
-              backgroundColors={backgroundColors}
               keepInsertEnabled={keepInsertEnabled}
               onToggleKeepInsert={handleToggleKeepInsert}
+              fileName={fileName}
+              onFileNameChange={setFileName}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              canUndo={historyIndex > 0}
+              canRedo={historyIndex < history.length - 1}
             />
 
             {/* Main Content Area */}
@@ -1269,26 +1619,30 @@ const PresentationApp = () => {
                 addSlide={addSlide}
                 deleteSlide={deleteSlide}
                 moveSlide={moveSlide}
+                thumbnails={thumbnails}
               />
 
               {/* Center - Slide Editor */}
-              <div className="slide-editor">
-                <div 
-                  className="slide" 
-                  style={{
-                    backgroundColor: currentSlide.background?.color || DEFAULT_BACKGROUND,
-                    cursor: pendingInsert ? 'crosshair' : 'default'
-                  }}
-                  ref={slideRef}
-                  onClick={(e) => {
-                    if (pendingInsert) {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      placeElementAt(e.clientX, e.clientY, rect);
-                    } else {
-                      setSelectedElement(null);
-                    }
-                  }}
-                >
+              <div
+                className={`slide-editor${chartEditorElement ? ' has-chart-editor' : ''}`}
+              >
+                <div className="slide-editor-canvas">
+                  <div
+                    className="slide"
+                    style={{
+                      backgroundColor: currentSlide.background?.color || DEFAULT_BACKGROUND,
+                      cursor: pendingInsert ? 'crosshair' : 'default'
+                    }}
+                    ref={slideRef}
+                    onClick={(e) => {
+                      if (pendingInsert) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        placeElementAt(e.clientX, e.clientY, rect);
+                      } else {
+                        setSelectedElement(null);
+                      }
+                    }}
+                  >
                   {currentSlide.content?.map((element) => {
                     const isSelected = selectedElement?.id === element.id;
 
@@ -1453,12 +1807,18 @@ const PresentationApp = () => {
                         ? defaultChartHeight
                         : 160;
                     const minWidth =
-                      element.type === 'text' ? MIN_TEXT_WIDTH : MIN_ELEMENT_SIZE;
+                      element.type === 'text' 
+                        ? MIN_TEXT_WIDTH 
+                        : element.type === 'table'
+                        ? MIN_TABLE_WIDTH
+                        : MIN_ELEMENT_SIZE;
                     const minHeight =
                       element.type === 'text'
                         ? MIN_TEXT_HEIGHT
                         : element.type === 'chart'
                         ? MIN_CHART_HEIGHT
+                        : element.type === 'table'
+                        ? MIN_TABLE_HEIGHT
                         : MIN_ELEMENT_SIZE;
                     const lockAspectRatio =
                       element.type === 'image' && element.maintainAspect
@@ -1491,6 +1851,12 @@ const PresentationApp = () => {
                             isSelected={isSelected}
                             onContentChange={(html, plainText) => {
                               updateElement(element.id, { text: html, plainText });
+                            }}
+                            onEditorReady={(editor) => {
+                              setTextEditors((prev) => ({
+                                ...prev,
+                                [element.id]: editor
+                              }));
                             }}
                             onFocus={() => {
                               setSelectedElement(element);
@@ -1602,6 +1968,18 @@ const PresentationApp = () => {
                         );
                       }
 
+                      if (element.type === 'table') {
+                        return (
+                          <div className="table-element-content">
+                            <TableComponent
+                              element={element}
+                              onUpdate={updateElement}
+                              isSelected={isSelected}
+                            />
+                          </div>
+                        );
+                      }
+
                       return null;
                     };
 
@@ -1657,6 +2035,7 @@ const PresentationApp = () => {
                   {selectedElement?.type === 'text' && (
                     <TextToolbar
                       element={selectedElement}
+                      editor={textEditors[selectedElement.id]}
                       onUpdate={updateElement}
                       onDelete={deleteElement}
                       position={{ x: toolbarPosition.x, y: toolbarPosition.y }}
@@ -1711,6 +2090,20 @@ const PresentationApp = () => {
                     />
                   )}
 
+                  {tableToolbarPosition && selectedElement?.type === 'table' && (
+                    <TableToolbar
+                      element={selectedElement}
+                      position={tableToolbarPosition}
+                      isVisible
+                      onUpdate={updateElement}
+                      onDelete={() => deleteElement(selectedElement.id)}
+                      onDismiss={() => {
+                        setTableToolbarPosition(null);
+                        setHoveredElement(null);
+                      }}
+                    />
+                  )}
+
                   {pendingInsert && (
                     <div className="insert-hint">
                       Click on the slide to add {describeInsertTarget(pendingInsert)}.
@@ -1720,14 +2113,27 @@ const PresentationApp = () => {
                     </div>
                   )}
 
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={imageInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleImageFileChange}
+                  />
                 </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={imageInputRef}
-                  style={{ display: 'none' }}
-                  onChange={handleImageFileChange}
-                />
+
+                {chartEditorElement && (
+                  <ChartDataEditor
+                    isOpen
+                    data={chartEditorElement.chartData || createDefaultChartData(chartEditorElement.chartType || 'bar')}
+                    chartTypeLabels={chartTypeLabels}
+                    palette={CHART_COLOR_PALETTE}
+                    onClose={() => setChartEditorId(null)}
+                    onSave={handleChartEditorSave}
+                    onChange={handleChartEditorChange}
+                  />
+                )}
               </div>
             </main>
           </div>
@@ -1762,17 +2168,20 @@ const PresentationApp = () => {
                           left: `${element.x}px`,
                           top: `${element.y}px`,
                           width: `${element.width}px`,
-                          height: `${element.height}px`,
+                          minHeight: `${element.height}px`,
+                          padding: '8px',
                           fontSize: `${element.fontSize}px`,
                           color: element.color,
                           fontFamily: element.fontFamily,
                           textAlign: element.textAlign || 'left',
-                          fontWeight: element.fontWeight || 'normal',
+                          fontWeight: element.bold ? 'bold' : element.fontWeight || 'normal',
                           fontStyle: element.italic ? 'italic' : 'normal',
                           textDecoration: element.underline ? 'underline' : 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: element.textAlign === 'center' ? 'center' : 'flex-start'
+                          lineHeight: element.lineHeight || '1.4',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          display: 'block',
+                          backgroundColor: 'transparent'
                         }}
                         dangerouslySetInnerHTML={{ __html: element.text || '' }}
                       />
@@ -1924,16 +2333,6 @@ const PresentationApp = () => {
           </div>
         )}
       </div>
-      {chartEditorElement && (
-        <ChartDataEditor
-          isOpen
-          data={chartEditorElement.chartData || createDefaultChartData(chartEditorElement.chartType || 'bar')}
-          chartTypeLabels={chartTypeLabels}
-          palette={CHART_COLOR_PALETTE}
-          onClose={closeChartEditor}
-          onSave={handleChartEditorSave}
-        />
-      )}
     </>
   );
 };

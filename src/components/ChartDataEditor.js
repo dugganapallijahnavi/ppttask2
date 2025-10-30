@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './ChartDataEditor.css';
 
 const DEFAULT_TYPE = 'bar';
@@ -148,13 +148,43 @@ const normalizeChartData = (input, palette) => {
   };
 };
 
+const sanitizeChartData = (localData, palette) => ({
+  ...localData,
+  labels: localData.labels.map((label, index) => {
+    const trimmed = label?.toString()?.trim();
+    return trimmed ? trimmed : `Category ${index + 1}`;
+  }),
+  datasets: localData.datasets.map((dataset, datasetIndex) => {
+    const base = {
+      ...dataset,
+      label: dataset.label?.toString()?.trim() || `Series ${datasetIndex + 1}`,
+      variant: dataset.variant || inferVariant(localData.type, datasetIndex),
+      data: dataset.data.map((value) => coerceNumber(value))
+    };
+    if (localData.type === 'pie') {
+      const colors = Array.isArray(dataset.segmentColors)
+        ? [...dataset.segmentColors]
+        : localData.labels.map((_, idx) => palette[idx % palette.length]);
+      while (colors.length < localData.labels.length) {
+        colors.push(palette[colors.length % palette.length]);
+      }
+      if (colors.length > localData.labels.length) {
+        colors.length = localData.labels.length;
+      }
+      base.segmentColors = colors;
+    }
+    return base;
+  })
+});
+
 const ChartDataEditor = ({
   isOpen,
   data,
   chartTypeLabels,
   palette,
   onClose,
-  onSave
+  onSave,
+  onChange
 }) => {
   const [localData, setLocalData] = useState(() => normalizeChartData(data, palette));
 
@@ -164,8 +194,34 @@ const ChartDataEditor = ({
     }
   }, [data, palette, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   const variantOptions = useMemo(() => getVariantOptions(localData.type), [localData.type]);
   const canAddSeries = localData.type !== 'pie';
+
+  const applyChange = useCallback(
+    (producer) => {
+      setLocalData((prev) => {
+        const next = producer(prev);
+        if (isOpen && typeof onChange === 'function') {
+          onChange(sanitizeChartData(next, palette));
+        }
+        return next;
+      });
+    },
+    [isOpen, onChange, palette]
+  );
 
   if (!isOpen) {
     return null;
@@ -173,7 +229,7 @@ const ChartDataEditor = ({
 
   const handleTypeChange = (event) => {
     const nextType = event.target.value;
-    setLocalData((prev) => {
+    applyChange((prev) => {
       const nextDatasets = (prev.datasets || []).map((dataset, index) => ({
         ...dataset,
         variant: inferVariant(nextType, index)
@@ -196,11 +252,11 @@ const ChartDataEditor = ({
 
   const handleTitleChange = (event) => {
     const { value } = event.target;
-    setLocalData((prev) => ({ ...prev, title: value }));
+    applyChange((prev) => ({ ...prev, title: value }));
   };
 
   const handleLabelChange = (index, value) => {
-    setLocalData((prev) => {
+    applyChange((prev) => {
       const labels = [...prev.labels];
       labels[index] = value;
       return { ...prev, labels };
@@ -208,7 +264,7 @@ const ChartDataEditor = ({
   };
 
   const handleDatasetLabelChange = (datasetIndex, value) => {
-    setLocalData((prev) => {
+    applyChange((prev) => {
       const datasets = prev.datasets.map((dataset, index) =>
         index === datasetIndex ? { ...dataset, label: value } : dataset
       );
@@ -217,7 +273,7 @@ const ChartDataEditor = ({
   };
 
   const handleDatasetColorChange = (datasetIndex, value) => {
-    setLocalData((prev) => {
+    applyChange((prev) => {
       if (prev.type === 'pie') {
         return prev;
       }
@@ -229,7 +285,7 @@ const ChartDataEditor = ({
   };
 
   const handleDatasetVariantChange = (datasetIndex, value) => {
-    setLocalData((prev) => {
+    applyChange((prev) => {
       const datasets = prev.datasets.map((dataset, index) =>
         index === datasetIndex ? { ...dataset, variant: value } : dataset
       );
@@ -238,7 +294,7 @@ const ChartDataEditor = ({
   };
 
   const handleValueChange = (datasetIndex, labelIndex, value) => {
-    setLocalData((prev) => {
+    applyChange((prev) => {
       const datasets = prev.datasets.map((dataset, index) => {
         if (index !== datasetIndex) {
           return dataset;
@@ -252,7 +308,7 @@ const ChartDataEditor = ({
   };
 
   const handleSliceColorChange = (labelIndex, color) => {
-    setLocalData((prev) => {
+    applyChange((prev) => {
       if (prev.type !== 'pie') {
         return prev;
       }
@@ -272,7 +328,7 @@ const ChartDataEditor = ({
   };
 
   const addCategory = () => {
-    setLocalData((prev) => {
+    applyChange((prev) => {
       const nextLabel = `Category ${prev.labels.length + 1}`;
       const labels = [...prev.labels, nextLabel];
       const datasets = prev.datasets.map((dataset) => ({
@@ -284,7 +340,7 @@ const ChartDataEditor = ({
   };
 
   const removeCategory = (index) => {
-    setLocalData((prev) => {
+    applyChange((prev) => {
       if (prev.labels.length <= 1) {
         return prev;
       }
@@ -301,7 +357,7 @@ const ChartDataEditor = ({
     if (!canAddSeries) {
       return;
     }
-    setLocalData((prev) => {
+    applyChange((prev) => {
       const nextIndex = prev.datasets.length;
       const newDataset = {
         id: createDatasetId(),
@@ -315,7 +371,7 @@ const ChartDataEditor = ({
   };
 
   const removeSeries = (index) => {
-    setLocalData((prev) => {
+    applyChange((prev) => {
       if (prev.datasets.length <= 1) {
         return prev;
       }
@@ -325,41 +381,14 @@ const ChartDataEditor = ({
   };
 
   const handleSave = () => {
-    const sanitized = {
-      ...localData,
-      labels: localData.labels.map((label, index) => {
-        const trimmed = label?.toString()?.trim();
-        return trimmed ? trimmed : `Category ${index + 1}`;
-      }),
-      datasets: localData.datasets.map((dataset, datasetIndex) => {
-        const base = {
-          ...dataset,
-          label: dataset.label?.toString()?.trim() || `Series ${datasetIndex + 1}`,
-          variant: dataset.variant || inferVariant(localData.type, datasetIndex),
-          data: dataset.data.map((value) => coerceNumber(value))
-        };
-        if (localData.type === 'pie') {
-          const colors = Array.isArray(dataset.segmentColors)
-            ? [...dataset.segmentColors]
-            : localData.labels.map((_, idx) => palette[idx % palette.length]);
-          while (colors.length < localData.labels.length) {
-            colors.push(palette[colors.length % palette.length]);
-          }
-          if (colors.length > localData.labels.length) {
-            colors.length = localData.labels.length;
-          }
-          base.segmentColors = colors;
-        }
-        return base;
-      })
-    };
+    const sanitized = sanitizeChartData(localData, palette);
     onSave(sanitized);
   };
 
   return (
-    <div className="chart-data-editor-overlay">
+    <div className="chart-data-editor-overlay" role="dialog" aria-modal="true">
       <div className="chart-data-editor-backdrop" onClick={onClose} />
-      <div className="chart-data-editor-panel">
+      <aside className="chart-data-editor-panel">
         <div className="chart-editor-header">
           <div>
             <h2>Edit Chart Data</h2>
@@ -516,7 +545,7 @@ const ChartDataEditor = ({
             Save Changes
           </button>
         </div>
-      </div>
+      </aside>
     </div>
   );
 };

@@ -2,6 +2,100 @@ import React, { useEffect, useState } from 'react';
 import './SlidePanel.css';
 import { SLIDE_LAYOUTS, DEFAULT_LAYOUT_ID } from '../data/slideLayouts';
 
+const CHART_PREVIEW_COLORS = [
+  '#3b82f6',
+  '#ef4444',
+  '#f59e0b',
+  '#10b981',
+  '#6366f1',
+  '#a855f7',
+  '#14b8a6',
+  '#f97316'
+];
+
+const datasetColor = (dataset, index = 0) => {
+  if (dataset) {
+    if (Array.isArray(dataset.segmentColors) && dataset.segmentColors[index]) {
+      return dataset.segmentColors[index];
+    }
+    if (dataset.color) {
+      return dataset.color;
+    }
+    if (dataset.backgroundColor) {
+      return dataset.backgroundColor;
+    }
+  }
+  return CHART_PREVIEW_COLORS[index % CHART_PREVIEW_COLORS.length];
+};
+
+const ensureNumber = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const extractChartPreview = (element) => {
+  const chartType = element.chartType || element.chartData?.type || 'bar';
+  const chartData = element.chartData;
+
+  const fallback = (() => {
+    const labels = Array.isArray(chartData?.labels) ? chartData.labels : ['Item 1'];
+    const datasets = Array.isArray(chartData?.datasets) && chartData.datasets.length
+      ? chartData.datasets
+      : [{ id: 'series-0', label: 'Series 1', color: CHART_PREVIEW_COLORS[0], data: labels.map(() => 0) }];
+    return { chartType, labels, datasets };
+  })();
+
+  if (chartData && Array.isArray(chartData.labels) && chartData.labels.length) {
+    return fallback;
+  }
+
+  const slideSeries = Array.isArray(element.series) ? element.series : [];
+  const slideData = Array.isArray(element.data) ? element.data : [];
+
+  const labels = slideData.length
+    ? slideData.map((point, index) => point?.label || `Item ${index + 1}`)
+    : fallback.labels;
+
+  let normalizedSeries = slideSeries.map((series, index) => ({
+    id: series?.id || `series-${index}`,
+    label: series?.name || series?.label || `Series ${index + 1}`,
+    color: series?.color || CHART_PREVIEW_COLORS[index % CHART_PREVIEW_COLORS.length]
+  }));
+
+  if (!normalizedSeries.length) {
+    normalizedSeries = fallback.datasets.map((dataset, index) => ({
+      id: dataset.id || `series-${index}`,
+      label: dataset.label || `Series ${index + 1}`,
+      color: dataset.color || CHART_PREVIEW_COLORS[index % CHART_PREVIEW_COLORS.length]
+    }));
+  }
+
+  const datasets = normalizedSeries.map((series, seriesIndex) => {
+    const seriesId = series.id || `series-${seriesIndex}`;
+    const values = slideData.map((point) => {
+      if (point && point.values && typeof point.values === 'object') {
+        const direct = point.values[seriesId];
+        const fallbackValue = series.id ? point.values[series.id] : undefined;
+        return ensureNumber(direct ?? fallbackValue);
+      }
+      return 0;
+    });
+
+    return {
+      id: seriesId,
+      label: series.label,
+      color: series.color,
+      data: values.length ? values : labels.map(() => 0)
+    };
+  });
+
+  return {
+    chartType,
+    labels,
+    datasets: datasets.length ? datasets : fallback.datasets
+  };
+};
+
 
 const SlidePanel = ({
   slides,
@@ -9,9 +103,12 @@ const SlidePanel = ({
   setCurrentSlide,
   addSlide,
   deleteSlide,
-  moveSlide
+  moveSlide,
+  thumbnails
 }) => {
   const [isLayoutPickerOpen, setIsLayoutPickerOpen] = useState(false);
+  const [layoutInsertIndex, setLayoutInsertIndex] = useState(null);
+  const [hoveredIndex, setHoveredIndex] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [dragPosition, setDragPosition] = useState(null);
@@ -31,25 +128,33 @@ const SlidePanel = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isLayoutPickerOpen]);
 
-  const handleAddClick = () => {
+  const handleAddClick = (targetIndex = slides.length) => {
+    const normalizedIndex = Math.min(Math.max(targetIndex, 0), slides.length);
+    setLayoutInsertIndex(normalizedIndex);
     setIsLayoutPickerOpen(true);
   };
 
   const handleLayoutSelect = (layoutId) => {
     const selectedLayout = layoutId || DEFAULT_LAYOUT_ID;
     if (addSlide) {
-      addSlide(selectedLayout);
+      const insertAt = Number.isFinite(layoutInsertIndex) ? layoutInsertIndex : slides.length;
+      addSlide(selectedLayout, insertAt);
     }
     setIsLayoutPickerOpen(false);
+    setLayoutInsertIndex(null);
   };
 
   const handleOverlayClick = (event) => {
     if (event.target.classList.contains('layout-picker-overlay')) {
       setIsLayoutPickerOpen(false);
+      setLayoutInsertIndex(null);
     }
   };
 
-  const handleClosePicker = () => setIsLayoutPickerOpen(false);
+  const handleClosePicker = () => {
+    setIsLayoutPickerOpen(false);
+    setLayoutInsertIndex(null);
+  };
 
   const resetDragState = () => {
     setDragIndex(null);
@@ -155,6 +260,7 @@ const SlidePanel = ({
 
       <div className="slides-list">
         {slides.map((slide, index) => {
+          const thumbnailSrc = thumbnails?.[slide.id];
           return (
             <div
               key={slide.id}
@@ -171,6 +277,8 @@ const SlidePanel = ({
               onDragLeave={handleDragLeave(index)}
               onDrop={handleDrop(index)}
               onDragEnd={handleDragEnd}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex((current) => (current === index ? null : current))}
             >
               <div className="slide-card-header">
                 <span className="slide-card-title">{`Slide ${index + 1}`}</span>
@@ -186,296 +294,285 @@ const SlidePanel = ({
                 )}
               </div>
 
-              <div 
+              <div
                 className="slide-card-preview"
-                style={{ 
-                  background: slide.background || '#ffffff',
+                style={{
+                  background:
+                    typeof slide.background === 'string'
+                      ? slide.background
+                      : slide.background?.color || '#ffffff',
                   position: 'relative',
                   overflow: 'hidden'
                 }}
               >
-                {slide.content && slide.content.length > 0 ? (
+                {(Array.isArray(slide.content) && slide.content.length === 0) ? (
+                  <span className="slide-card-preview-placeholder">Empty slide</span>
+                ) : thumbnailSrc ? (
+                  <img
+                    src={thumbnailSrc}
+                    alt={`Slide ${index + 1} preview`}
+                    className="slide-card-preview-image"
+                  />
+                ) : (
                   slide.content.map((element) => {
-                    const scale = 0.15; // Scale down for thumbnail
-                    const previewStyle = {
+                    const scale = 0.15;
+                    const baseStyle = {
                       position: 'absolute',
-                      left: `${element.x * scale}px`,
-                      top: `${element.y * scale}px`,
-                      width: element.width ? `${element.width * scale}px` : 'auto',
-                      height: element.height ? `${element.height * scale}px` : 'auto',
-                      fontSize: element.fontSize ? `${element.fontSize * scale}px` : '3px',
-                      color: element.color || '#000',
-                      fontFamily: element.fontFamily || 'inherit',
-                      fontWeight: element.bold ? 700 : (element.fontWeight || 400),
-                      fontStyle: element.italic ? 'italic' : 'normal',
-                      textAlign: element.textAlign || 'left',
-                      overflow: 'hidden',
-                      whiteSpace: 'nowrap',
-                      textOverflow: 'ellipsis',
+                      left: `${(Number(element.x) || 0) * scale}px`,
+                      top: `${(Number(element.y) || 0) * scale}px`,
+                      width: Number.isFinite(element.width)
+                        ? `${element.width * scale}px`
+                        : 'auto',
+                      height: Number.isFinite(element.height)
+                        ? `${element.height * scale}px`
+                        : 'auto',
                       pointerEvents: 'none'
                     };
 
                     if (element.type === 'text') {
+                      const fontSize = Number.isFinite(element.fontSize)
+                        ? element.fontSize * scale
+                        : 12 * scale;
+                      const plainText = element.plainText
+                        || (typeof element.text === 'string'
+                          ? element.text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+                          : '');
+
                       return (
-                        <div key={element.id} style={previewStyle}>
-                          {element.plainText || 'Text'}
+                        <div
+                          key={element.id}
+                          style={{
+                            ...baseStyle,
+                            fontSize: `${Math.max(fontSize, 3)}px`,
+                            lineHeight: 1.2,
+                            color: element.color || '#111827',
+                            fontWeight: element.bold ? 700 : element.fontWeight || 400,
+                            fontStyle: element.italic ? 'italic' : 'normal',
+                            textAlign: element.textAlign || 'left',
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap',
+                            textOverflow: 'ellipsis',
+                            maxWidth: `${(Number(element.width) || 0) * scale}px`
+                          }}
+                          title={plainText}
+                        >
+                          {plainText || 'Text'}
                         </div>
                       );
                     }
 
                     if (element.type === 'shape') {
-                      let clipPath = 'none';
-                      let borderRadius = '2px';
-                      
-                      // Set clip-path based on shape type
-                      if (element.shape === 'circle') {
-                        borderRadius = '50%';
-                      } else if (element.shape === 'triangle') {
-                        clipPath = 'polygon(50% 0%, 0% 100%, 100% 100%)';
-                      } else if (element.shape === 'star') {
-                        clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
-                      } else if (element.shape === 'arrow') {
-                        clipPath = 'polygon(0% 30%, 60% 30%, 60% 0%, 100% 50%, 60% 100%, 60% 70%, 0% 70%)';
-                      }
-                      
-                      const shapeStyle = {
-                        ...previewStyle,
-                        background: element.fillColor || '#e5e7eb',
-                        border: clipPath === 'none' ? `${0.5 * scale}px solid ${element.borderColor || '#9ca3af'}` : 'none',
-                        borderRadius: borderRadius,
-                        clipPath: clipPath
+                      const fillColor = element.color || element.fillColor || '#3b82f6';
+                      const borderColor = element.borderColor || fillColor;
+                      const borderWidth = Number.isFinite(element.borderWidth)
+                        ? Math.max(element.borderWidth * scale, 0.5)
+                        : 0;
+                      const commonStyle = {
+                        ...baseStyle,
+                        background: fillColor,
+                        border: borderWidth ? `${borderWidth}px solid ${borderColor}` : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: `${Math.max(10 * scale, 3)}px`,
+                        color: element.textColor || '#ffffff',
+                        fontWeight: 600,
+                        overflow: 'hidden'
                       };
-                      return <div key={element.id} style={shapeStyle}></div>;
+
+                      if (element.shape === 'circle') {
+                        commonStyle.borderRadius = '50%';
+                      } else if (element.shape === 'triangle') {
+                        commonStyle.clipPath = 'polygon(50% 0%, 0% 100%, 100% 100%)';
+                      } else if (element.shape === 'star') {
+                        commonStyle.clipPath =
+                          'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
+                      } else if (element.shape === 'arrow') {
+                        commonStyle.clipPath =
+                          'polygon(0% 40%, 70% 40%, 70% 15%, 100% 50%, 70% 85%, 70% 60%, 0% 60%)';
+                      } else if (element.shape === 'line') {
+                        return (
+                          <div
+                            key={element.id}
+                            style={{
+                              ...baseStyle,
+                              height: `${Math.max((element.strokeWidth || 2) * scale, 1)}px`,
+                              background: fillColor,
+                              borderRadius: '999px'
+                            }}
+                          />
+                        );
+                      } else {
+                        commonStyle.borderRadius = `${Math.max(8 * scale, 2)}px`;
+                      }
+
+                      return (
+                        <div key={element.id} style={commonStyle}>
+                          {element.text && element.shape !== 'line' ? element.text : ''}
+                        </div>
+                      );
                     }
 
                     if (element.type === 'chart') {
-                      const chartType = element.chartType || 'bar';
-                      const chartData = Array.isArray(element.data) ? element.data : [];
-                      const series = Array.isArray(element.series) ? element.series : [];
-                      const chartWidth = (element.width || 260) * scale;
-                      const chartHeight = (element.height || 180) * scale;
-                      
+                      const { chartType, labels, datasets } = extractChartPreview(element);
+                      const previewWidth = Number.isFinite(element.width)
+                        ? element.width * scale
+                        : 180 * scale;
+                      const previewHeight = Number.isFinite(element.height)
+                        ? element.height * scale
+                        : 120 * scale;
+
                       const chartStyle = {
-                        ...previewStyle,
+                        ...baseStyle,
+                        width: `${previewWidth}px`,
+                        height: `${previewHeight}px`,
+                        border: '0.5px solid rgba(148, 163, 184, 0.45)',
+                        borderRadius: '4px',
                         background: element.background || '#ffffff',
-                        border: '0.5px solid #d1d5db',
-                        borderRadius: '1px',
-                        padding: '1px',
+                        padding: '4px',
+                        boxSizing: 'border-box',
                         display: 'flex',
                         flexDirection: 'column',
-                        justifyContent: 'flex-end',
-                        alignItems: 'center',
-                        boxSizing: 'border-box'
+                        justifyContent: 'center',
+                        alignItems: 'center'
                       };
-                      
-                      const innerWidth = Math.max(10, chartWidth - 4);
-                      const innerHeight = Math.max(10, chartHeight - 6);
-                      
-                      // Always try to render - show icon only if rendering fails
-                      const hasData = chartData.length > 0 && series.length > 0;
-                      
-                      try {
+
+                      if (!datasets.length || !labels.length) {
                         return (
                           <div key={element.id} style={chartStyle}>
-                          {chartType === 'pie' ? (
-                            (() => {
-                              if (!hasData || chartData.length === 0) {
-                                return (
-                                  <div style={{
-                                    width: `${Math.min(innerHeight, innerWidth) * 0.85}px`,
-                                    height: `${Math.min(innerHeight, innerWidth) * 0.85}px`,
-                                    borderRadius: '50%',
-                                    background: 'conic-gradient(#3b82f6 0deg 140deg, #f97316 140deg 260deg, #34d399 260deg 360deg)'
-                                  }}></div>
-                                );
-                              }
-                              
-                              // Calculate actual pie percentages from data
-                              const total = chartData.reduce((sum, point) => {
-                                const pointSum = Object.values(point.values || {}).reduce((s, v) => s + (Number(v) || 0), 0);
-                                return sum + pointSum;
-                              }, 0) || 1;
-                              
-                              let currentAngle = 0;
-                              const segments = chartData.map((point, i) => {
-                                const value = Object.values(point.values || {})[0] || 0;
-                                const percentage = (value / total) * 360;
-                                const color = series[i % series.length]?.color || '#3b82f6';
-                                const start = currentAngle;
-                                currentAngle += percentage;
-                                return `${color} ${start}deg ${currentAngle}deg`;
-                              }).join(', ');
-                              
-                              return (
-                                <div style={{
-                                  width: `${Math.min(innerHeight, innerWidth) * 0.85}px`,
-                                  height: `${Math.min(innerHeight, innerWidth) * 0.85}px`,
-                                  borderRadius: '50%',
-                                  background: `conic-gradient(${segments})`
-                                }}></div>
-                              );
-                            })()
-                          ) : chartType === 'line' || chartType === 'area' ? (
-                            (() => {
-                              if (!hasData || chartData.length === 0) {
-                                return (
-                                  <svg width={innerWidth} height={innerHeight}>
-                                    <polyline
-                                      points={`0,${innerHeight-2} ${innerWidth*0.25},${innerHeight*0.5} ${innerWidth*0.5},${innerHeight*0.7} ${innerWidth*0.75},${innerHeight*0.35} ${innerWidth},${innerHeight*0.55}`}
-                                      fill={chartType === 'area' ? '#3b82f680' : 'none'}
-                                      stroke="#3b82f6"
-                                      strokeWidth="1"
-                                    />
-                                  </svg>
-                                );
-                              }
-                              
-                              // Get actual values for first series
-                              const seriesId = series[0]?.id;
-                              const values = chartData.map(point => Number(point.values?.[seriesId]) || 0);
-                              const maxValue = Math.max(...values, 1);
-                              
-                              const points = values.map((value, i) => {
-                                const x = (i / Math.max(values.length - 1, 1)) * innerWidth;
-                                const y = innerHeight - ((value / maxValue) * (innerHeight - 4)) - 2;
-                                return `${x},${y}`;
-                              }).join(' ');
-                              
-                              return (
-                                <svg width={innerWidth} height={innerHeight} style={{ display: 'block' }}>
-                                  <polyline
-                                    points={points}
-                                    fill={chartType === 'area' ? (series[0]?.color || '#3b82f6') + '40' : 'none'}
-                                    stroke={series[0]?.color || '#3b82f6'}
-                                    strokeWidth="1"
-                                  />
-                                </svg>
-                              );
-                            })()
-                          ) : (
-                            (() => {
-                              if (!hasData || chartData.length === 0) {
-                                return (
-                                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1px', height: innerHeight, width: innerWidth, justifyContent: 'space-evenly' }}>
-                                    {[0.65, 0.85, 0.55, 0.90, 0.70].map((ratio, i) => (
-                                      <div key={i} style={{
-                                        flex: 1,
-                                        height: `${innerHeight * ratio}px`,
-                                        background: '#3b82f6',
-                                        borderRadius: '0.5px'
-                                      }}></div>
-                                    ))}
-                                  </div>
-                                );
-                              }
-                              
-                              // Get max value across all series for proper scaling
-                              const allValues = chartData.flatMap(point =>
-                                series.map(s => Number(point.values?.[s.id]) || 0)
-                              );
-                              const maxValue = Math.max(...allValues, 1);
-                              
-                              const barWidth = Math.max(2, innerWidth / (chartData.length * series.length + chartData.length));
-                              const gap = barWidth * 0.15;
-                              
-                              return (
-                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: `${gap}px`, height: innerHeight, width: innerWidth, justifyContent: 'space-evenly' }}>
-                                  {chartData.map((point, pointIndex) => (
-                                    <div key={pointIndex} style={{ display: 'flex', alignItems: 'flex-end', gap: `${gap * 0.5}px` }}>
-                                      {series.map((s, seriesIndex) => {
-                                        const value = Number(point.values?.[s.id]) || 0;
-                                        const height = Math.max(1, (value / maxValue) * (innerHeight - 2));
-                                        return (
-                                          <div
-                                            key={`${pointIndex}-${seriesIndex}`}
-                                            style={{
-                                              width: `${barWidth}px`,
-                                              height: `${height}px`,
-                                              background: s.color || '#3b82f6',
-                                              borderRadius: '0.5px'
-                                            }}
-                                          ></div>
-                                        );
-                                      })}
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            })()
-                          )}
-                        </div>
-                        );
-                      } catch (error) {
-                        // Render simple generic chart on error
-                        return (
-                          <div key={element.id} style={chartStyle}>
-                            {chartType === 'pie' ? (
-                              <div style={{
-                                width: `${Math.min(innerHeight, innerWidth) * 0.85}px`,
-                                height: `${Math.min(innerHeight, innerWidth) * 0.85}px`,
-                                borderRadius: '50%',
-                                background: 'conic-gradient(#3b82f6 0deg 120deg, #f97316 120deg 240deg, #34d399 240deg 360deg)'
-                              }}></div>
-                            ) : chartType === 'line' || chartType === 'area' ? (
-                              <svg width={innerWidth} height={innerHeight}>
-                                <polyline
-                                  points={`0,${innerHeight-2} ${innerWidth*0.25},${innerHeight*0.5} ${innerWidth*0.5},${innerHeight*0.7} ${innerWidth*0.75},${innerHeight*0.35} ${innerWidth},${innerHeight*0.55}`}
-                                  fill={chartType === 'area' ? '#3b82f680' : 'none'}
-                                  stroke="#3b82f6"
-                                  strokeWidth="1"
-                                />
-                              </svg>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1px', height: innerHeight, width: innerWidth, justifyContent: 'space-evenly' }}>
-                                {[0.65, 0.85, 0.55, 0.90, 0.70].map((ratio, i) => (
-                                  <div key={i} style={{
-                                    flex: 1,
-                                    height: `${innerHeight * ratio}px`,
-                                    background: '#3b82f6',
-                                    borderRadius: '0.5px'
-                                  }}></div>
-                                ))}
-                              </div>
-                            )}
+                            <div className="chart-preview-placeholder">{chartType.toUpperCase()} chart</div>
                           </div>
                         );
                       }
+
+                      const nonZero = datasets.some((dataset) => dataset.data.some((value) => value > 0));
+                      if (!nonZero) {
+                        return (
+                          <div key={element.id} style={chartStyle}>
+                            <div className="chart-preview-placeholder">Add chart data</div>
+                          </div>
+                        );
+                      }
+
+                      if (chartType === 'pie') {
+                        const dataset = datasets[0];
+                        const total = dataset.data.reduce((sum, value) => sum + Math.max(value, 0), 0) || 1;
+                        let startAngle = 0;
+                        const segments = dataset.data.map((value, index) => {
+                          const angle = (Math.max(value, 0) / total) * 360;
+                          const segment = `${datasetColor(dataset, index)} ${startAngle}deg ${startAngle + angle}deg`;
+                          startAngle += angle;
+                          return segment;
+                        });
+
+                        return (
+                          <div key={element.id} style={chartStyle}>
+                            <div
+                              className="chart-preview-pie"
+                              style={{ background: `conic-gradient(${segments.join(', ')})` }}
+                            />
+                          </div>
+                        );
+                      }
+
+                      const innerWidth = Math.max(20, previewWidth - 8);
+                      const innerHeight = Math.max(20, previewHeight - 12);
+                      const maxValue = Math.max(
+                        ...datasets.flatMap((dataset) => dataset.data.map((value) => Math.max(value, 0))),
+                        1
+                      );
+
+                      if (chartType === 'line' || chartType === 'area') {
+                        const dataset = datasets[0];
+                        const pointCount = Math.max(dataset.data.length, 2);
+                        const points = dataset.data.map((value, index) => {
+                          const x =
+                            pointCount <= 1
+                              ? innerWidth / 2
+                              : (index / Math.max(pointCount - 1, 1)) * innerWidth;
+                          const y = innerHeight - (Math.max(value, 0) / maxValue) * (innerHeight - 4) - 2;
+                          return `${x},${y}`;
+                        }).join(' ');
+
+                        return (
+                          <div key={element.id} style={chartStyle}>
+                            <svg width={innerWidth} height={innerHeight} style={{ display: 'block' }}>
+                              <polyline
+                                points={points}
+                                fill={chartType === 'area' ? `${datasetColor(dataset, 0)}40` : 'none'}
+                                stroke={datasetColor(dataset, 0)}
+                                strokeWidth="1"
+                              />
+                            </svg>
+                          </div>
+                        );
+                      }
+
+                      const visibleLabels = labels.slice(0, Math.min(labels.length, 5));
+                      const barsPerGroup = datasets.length;
+                      const groupWidth = Math.max(4, innerWidth / (visibleLabels.length || 1));
+                      const barWidth = Math.max(2, groupWidth / Math.max(barsPerGroup, 1) - 2);
+
+                      return (
+                        <div key={element.id} style={chartStyle}>
+                          <div
+                            className="chart-preview-bars"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-end',
+                              justifyContent: 'space-evenly',
+                              width: innerWidth,
+                              height: innerHeight,
+                              gap: '4px'
+                            }}
+                          >
+                            {visibleLabels.map((label, labelIndex) => (
+                              <div
+                                key={label || labelIndex}
+                                className="chart-preview-bar-group"
+                                style={{ display: 'flex', alignItems: 'flex-end', gap: '2px' }}
+                              >
+                                {datasets.map((dataset, datasetIndex) => {
+                                  const value = dataset.data[labelIndex] || 0;
+                                  const barHeight = (Math.max(value, 0) / maxValue) * (innerHeight - 6);
+                                  return (
+                                    <div
+                                      key={`${dataset.id}-${labelIndex}`}
+                                      className="chart-preview-bar"
+                                      style={{
+                                        width: `${barWidth}px`,
+                                        height: `${Math.max(barHeight, 1)}px`,
+                                        background: datasetColor(dataset, datasetIndex)
+                                      }}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
                     }
 
                     if (element.type === 'image') {
-                      const imageContainerStyle = {
-                        ...previewStyle,
+                      const containerStyle = {
+                        ...baseStyle,
+                        border: '0.5px solid rgba(148, 163, 184, 0.4)',
+                        borderRadius: '4px',
                         overflow: 'hidden',
-                        border: '0.5px solid #d1d5db',
-                        borderRadius: '1px',
-                        background: '#f0f0f0'
+                        background: '#e5e7eb'
                       };
-                      
+
                       return (
-                        <div key={element.id} style={imageContainerStyle}>
+                        <div key={element.id} style={containerStyle}>
                           {element.src ? (
-                            <img 
-                              src={element.src} 
+                            <img
+                              src={element.src}
                               alt=""
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                display: 'block'
-                              }}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                             />
                           ) : (
-                            <div style={{
-                              width: '100%',
-                              height: '100%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '6px',
-                              color: '#999'
-                            }}>
-                              🖼️
-                            </div>
+                            <div className="slide-card-preview-placeholder">Image</div>
                           )}
                         </div>
                       );
@@ -483,10 +580,20 @@ const SlidePanel = ({
 
                     return null;
                   })
-                ) : (
-                  <span className="slide-card-preview-placeholder">Empty slide</span>
                 )}
               </div>
+              {hoveredIndex === index && (
+                <button
+                  type="button"
+                  className="slide-hover-insert"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleAddClick(index + 1);
+                  }}
+                >
+                  + Add slide below
+                </button>
+              )}
             </div>
           );
         })}

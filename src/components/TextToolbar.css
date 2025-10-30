@@ -4,6 +4,10 @@
   pointer-events: auto;
 }
 
+.is-capturing-thumbnail .text-toolbar-wrapper {
+  display: none !important;
+}
+
 .text-toolbar-card {
   display: flex;
   align-items: center;

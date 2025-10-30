@@ -133,4 +133,14 @@ const ShapeToolbar = ({
   );
 };
 
-export default ShapeToolbar;
+export default React.memo(ShapeToolbar, (prevProps, nextProps) => {
+  // Prevent re-render if element and position haven't changed
+  return (
+    prevProps.element?.id === nextProps.element?.id &&
+    prevProps.element?.shape === nextProps.element?.shape &&
+    prevProps.element?.color === nextProps.element?.color &&
+    prevProps.position?.x === nextProps.position?.x &&
+    prevProps.position?.y === nextProps.position?.y &&
+    prevProps.isVisible === nextProps.isVisible
+  );
+});

@@ -1,7 +1,7 @@
 .slide-panel {
-  width: 300px;
-  flex: 0 0 300px;
-  background: linear-gradient(180deg, #f8fafc, #ffffff);
+  width: 320px;
+  flex: 0 0 320px;
+  background: linear-gradient(180deg, #e5e7eb, #ffffff);
   border-right: 1px solid rgba(148, 163, 184, 0.25);
   display: flex;
   flex-direction: column;
@@ -35,12 +35,11 @@
 }
 
 .add-slide-btn {
-  background: linear-gradient(135deg, #e2e8f0 0%, #ffffff 100%);
+  background: linear-gradient(135deg, #d1d5db 0%, #ffffff 100%);
   color: #0f172a;
   border: 1px solid rgba(148, 163, 184, 0.45);
   font-size: 22px;
   cursor: pointer;
-  padding: 12px;
   border-radius: 12px;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   font-weight: 700;
@@ -49,6 +48,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  line-height: 1;
+  padding: 0;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
 }
 
@@ -79,12 +80,12 @@
   transition: transform 0.18s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
   background: #ffffff;
   border: 1px solid rgba(148, 163, 184, 0.25);
-  padding: 18px 16px;
+  padding: 20px 18px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   text-align: left;
-  min-height: 148px;
+  min-height: 168px;
   box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.6);
   color: #0f172a;
   flex-shrink: 0;
@@ -95,11 +96,11 @@
   transform: translateY(-4px);
   box-shadow: 0 20px 32px rgba(15, 23, 42, 0.12);
   border-color: rgba(148, 163, 184, 0.45);
-  background: #f3f4f6;
+  background: #d1d5db;
 }
 
 .slide-thumbnail.active {
-  background: #e2e8f0;
+  background: #d1d5db;
   border: 2px solid rgba(148, 163, 184, 0.65);
   box-shadow: 0 24px 44px rgba(15, 23, 42, 0.12);
   color: #0f172a;
@@ -115,6 +116,26 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+
+.slide-hover-insert {
+  margin-top: 12px;
+  width: 100%;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: 10px;
+  background: rgba(226, 232, 240, 0.35);
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.slide-hover-insert:hover {
+  background: rgba(148, 163, 184, 0.28);
+  transform: translateY(-1px);
 }
 
 .slide-card-title {
@@ -136,6 +157,8 @@
   justify-content: center;
   font-size: 18px;
   font-weight: 500;
+  line-height: 1;
+  padding: 0;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -147,12 +170,12 @@
 }
 
 .slide-card-preview {
-  background: #f8fafc;
-  border-radius: 10px;
-  min-height: 100px;
+  background: #e5e7eb;
+  border-radius: 12px;
+  min-height: 110px;
   display: block;
   position: relative;
-  font-size: 11px;
+  font-size: 12px;
   color: #141414;
   line-height: 1.4;
   font-weight: 400;
@@ -160,6 +183,14 @@
   border: 1px solid rgba(203, 213, 225, 0.6);
   aspect-ratio: 16 / 9;
   overflow: hidden;
+  padding: 8px;
+}
+
+.slide-card-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .slide-card-preview span {
@@ -206,18 +237,18 @@
 
 @media (max-width: 1200px) {
   .slide-panel {
-    width: 280px;
-    flex: 0 0 280px;
+    width: 300px;
+    flex: 0 0 300px;
   }
   .slides-list {
-    padding: 16px 18px 22px;
+    padding: 18px 20px 24px;
   }
   .slide-thumbnail {
-    min-height: 112px;
-    padding: 16px 14px;
+    min-height: 140px;
+    padding: 18px 16px;
   }
   .slide-card-preview {
-    min-height: 100px;
+    min-height: 105px;
   }
 }
 
@@ -369,7 +400,7 @@
 }
 
 .close-layout-picker {
-  background: #e2e8f0;
+  background: #d1d5db;
   border: 1px solid rgba(148, 163, 184, 0.45);
   border-radius: 8px;
   color: #0f172a;
@@ -397,7 +428,7 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background-color: #f8fafc;
+  background-color: #e5e7eb;
   border: 1px solid rgba(226, 232, 240, 0.7);
   border-radius: 14px;
   cursor: pointer;
@@ -425,7 +456,7 @@
 .layout-card-preview {
   width: 100%;
   aspect-ratio: 4 / 3;
-  background: linear-gradient(135deg, #e2e8f0, #ffffff);
+  background: linear-gradient(135deg, #d1d5db, #ffffff);
   border-radius: 12px;
   padding: 10px;
   display: flex;

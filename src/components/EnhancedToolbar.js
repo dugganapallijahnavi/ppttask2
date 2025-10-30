@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './EnhancedToolbar.css';
+import TableGridSelector from './TableGridSelector';
 
 const INSERT_OPTIONS = [
-  { key: 'text', label: 'Text', icon: 'TXT', description: 'Add a text box' },
-  { key: 'image', label: 'Image', icon: 'IMG', description: 'Insert an image from your device' },
-  { key: 'shape', label: 'Shape', icon: 'SHP', description: 'Draw basic shapes and lines' },
-  { key: 'chart', label: 'Chart', icon: 'CHT', description: 'Visualize data with charts' }
+  { key: 'text', label: 'TEXT' },
+  { key: 'image', label: 'IMAGE' },
+  { key: 'shape', label: 'SHAPES' },
+  { key: 'chart', label: 'CHARTS' },
+  { key: 'table', label: 'TABLE' }
 ];
 
 const SHAPE_OPTIONS = [
@@ -25,47 +27,32 @@ const CHART_OPTIONS = [
 
 const EnhancedToolbar = ({
   onInsertElement,
-  onBackgroundChange,
-  onThemeChange,
   onSavePresentation,
   onStartSlideshow,
-  currentBackground,
-  currentTheme,
-  themes = [],
-  backgroundColors = [],
   keepInsertEnabled = false,
-  onToggleKeepInsert
+  onToggleKeepInsert,
+  fileName = 'untitled',
+  onFileNameChange,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false
 }) => {
-  const [openMenu, setOpenMenu] = useState(null);
-  const [shapeMenuOpen, setShapeMenuOpen] = useState(false);
-  const [chartMenuOpen, setChartMenuOpen] = useState(false);
-  const [shapeMenuTop, setShapeMenuTop] = useState(0);
-  const [chartMenuTop, setChartMenuTop] = useState(0);
-
-  const insertMenuRef = useRef(null);
-  const shapeMenuRef = useRef(null);
-  const chartMenuRef = useRef(null);
-  const designMenuRef = useRef(null);
-  const backgroundMenuRef = useRef(null);
+  const [activePanel, setActivePanel] = useState(null);
+  const panelRef = useRef(null);
+  const toolbarRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      const nodes = [
-        insertMenuRef.current,
-        shapeMenuRef.current,
-        chartMenuRef.current,
-        designMenuRef.current,
-        backgroundMenuRef.current
-      ];
-
-      const clickedInside = nodes.some(
-        (node) => node && node.contains && node.contains(event.target)
-      );
-
-      if (!clickedInside) {
-        setOpenMenu(null);
-        setShapeMenuOpen(false);
-        setChartMenuOpen(false);
+      const toolbarNode = toolbarRef.current;
+      const panelNode = panelRef.current;
+      if (
+        toolbarNode &&
+        panelNode &&
+        !toolbarNode.contains(event.target) &&
+        !panelNode.contains(event.target)
+      ) {
+        setActivePanel(null);
       }
     };
 
@@ -73,233 +60,156 @@ const EnhancedToolbar = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const closeMenus = () => {
-    setOpenMenu(null);
-    setShapeMenuOpen(false);
-    setChartMenuOpen(false);
+  const handlePrimaryInsert = (type) => {
+    if (type === 'shape' || type === 'chart' || type === 'table') {
+      setActivePanel((prev) => (prev === type ? null : type));
+      return;
+    }
+
+    onInsertElement?.(type);
   };
 
-  const handleInsert = (type, subtype = null, event = null) => {
-    if (type === 'shape' && !subtype) {
-      setChartMenuOpen(false);
-      setShapeMenuOpen((prev) => {
-        const next = !prev;
-        if (next) {
-          if (event?.currentTarget && insertMenuRef.current) {
-            const buttonRect = event.currentTarget.getBoundingClientRect();
-            const menuRect = insertMenuRef.current.getBoundingClientRect();
-            setShapeMenuTop(buttonRect.top - menuRect.top);
-          } else {
-            setShapeMenuTop(0);
-          }
-        }
-        return next;
-      });
-      return;
-    }
-
-    if (type === 'chart' && !subtype) {
-      setShapeMenuOpen(false);
-      setChartMenuOpen((prev) => {
-        const next = !prev;
-        if (next) {
-          if (event?.currentTarget && insertMenuRef.current) {
-            const buttonRect = event.currentTarget.getBoundingClientRect();
-            const menuRect = insertMenuRef.current.getBoundingClientRect();
-            setChartMenuTop(buttonRect.top - menuRect.top);
-          } else {
-            setChartMenuTop(0);
-          }
-        }
-        return next;
-      });
-      return;
-    }
-
+  const handlePanelInsert = (type, subtype) => {
     onInsertElement?.(type, subtype);
-    closeMenus();
+    if (!keepInsertEnabled) {
+      setActivePanel(null);
+    }
   };
 
-  const renderInsertMenu = () => (
-    <div className="dropdown-menu" ref={insertMenuRef}>
-      {INSERT_OPTIONS.map((option) => (
-        <button
-          key={option.key}
-          type="button"
-          className="dropdown-item"
-          onClick={(event) => handleInsert(option.key, null, event)}
-        >
-          <span className="dropdown-icon">{option.icon}</span>
-          <div className="dropdown-copy">
-            <span className="dropdown-title">{option.label}</span>
-            <span className="dropdown-description">{option.description}</span>
-          </div>
-          {(option.key === 'shape' || option.key === 'chart') && (
-            <span className="dropdown-chevron">&gt;</span>
-          )}
-        </button>
-      ))}
-      {shapeMenuOpen && (
-        <div
-          className="shape-menu"
-          ref={shapeMenuRef}
-          style={{ top: shapeMenuTop }}
-        >
+  const handleTableSelect = (rows, cols) => {
+    onInsertElement?.('table', null, { rows, cols });
+    if (!keepInsertEnabled) {
+      setActivePanel(null);
+    }
+  };
+
+  const renderPanelContent = () => {
+    if (activePanel === 'shape') {
+      return (
+        <>
+          <span className="panel-title">Shapes</span>
           {SHAPE_OPTIONS.map((shape) => (
             <button
               key={shape.key}
               type="button"
-              className="dropdown-item"
-              onClick={() => handleInsert('shape', shape.key)}
+              className="panel-option"
+              onClick={() => handlePanelInsert('shape', shape.key)}
             >
               {shape.label}
             </button>
           ))}
-        </div>
-      )}
-      {chartMenuOpen && (
-        <div
-          className="chart-menu"
-          ref={chartMenuRef}
-          style={{ top: chartMenuTop }}
-        >
+        </>
+      );
+    }
+
+    if (activePanel === 'chart') {
+      return (
+        <>
+          <span className="panel-title">Charts</span>
           {CHART_OPTIONS.map((chart) => (
             <button
               key={chart.key}
               type="button"
-              className="dropdown-item"
-              onClick={() => handleInsert('chart', chart.key)}
+              className="panel-option"
+              onClick={() => handlePanelInsert('chart', chart.key)}
             >
-              <div className="chart-menu-copy">
-                <span className="dropdown-title">{chart.label}</span>
-                <span className="dropdown-description">{chart.description}</span>
-              </div>
+              <span className="panel-option-label">{chart.label}</span>
+              <span className="panel-option-help">{chart.description}</span>
             </button>
           ))}
-        </div>
-      )}
-    </div>
-  );
+        </>
+      );
+    }
 
-  const renderDesignMenu = () => (
-    <div className="dropdown-menu theme-menu" ref={designMenuRef}>
-      <div className="theme-tabs">
-        
-      </div>
-      <div className="theme-list">
-        {themes.map((theme) => (
-          <button
-            key={theme.id}
-            type="button"
-            className={`theme-option ${currentTheme === theme.id ? 'active' : ''}`}
-            onClick={() => {
-              onThemeChange?.(theme.id);
-              closeMenus();
-            }}
-          >
-            <span className="theme-preview">
-              <span
-                className="theme-preview-chip"
-                style={{ backgroundColor: theme.colors.background || '#111111' }}
-              >
-                <span
-                  className="theme-preview-accent"
-                  style={{ backgroundColor: theme.colors.accent || theme.colors.primary }}
-                />
-                <span
-                  className="theme-preview-text"
-                  style={{ color: theme.colors.secondary || '#ffffff' }}
-                >
-                  Aa
-                </span>
-              </span>
-            </span>
-            <span className="theme-name">{theme.name}</span>
-          </button>
-        ))}
-      </div>
-      <div className="theme-footer">
-        
-       
-      </div>
-    </div>
-  );
+    if (activePanel === 'table') {
+      return (
+        <TableGridSelector
+          onSelect={handleTableSelect}
+          onClose={() => setActivePanel(null)}
+        />
+      );
+    }
 
-  const renderBackgroundMenu = () => (
-    <div className="dropdown-menu background-menu" ref={backgroundMenuRef}>
-      <div className="color-grid">
-        {backgroundColors.map((color) => (
-          <button
-            key={color}
-            type="button"
-            className={`color-option ${currentBackground === color ? 'active' : ''}`}
-            style={{ backgroundColor: color }}
-            onClick={() => {
-              onBackgroundChange?.(color);
-              closeMenus();
-            }}
-            title={color}
-          />
-        ))}
-      </div>
-    </div>
-  );
+    return null;
+  };
+
+  const getButtonIcon = (key) => {
+    switch (key) {
+      case 'text':
+        return 'T';
+      case 'image':
+        return '🖼';
+      case 'shape':
+        return '◇';
+      case 'chart':
+        return '📊';
+      case 'table':
+        return '⊞';
+      default:
+        return '';
+    }
+  };
 
   return (
-    <div className="enhanced-toolbar">
-      <div className="toolbar-group">
+    <div className="enhanced-toolbar" ref={toolbarRef}>
+      <div className="toolbar-left">
+        {INSERT_OPTIONS.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            className={`toolbar-button icon-button ${activePanel === option.key ? 'active' : ''}`}
+            onClick={() => handlePrimaryInsert(option.key)}
+          >
+            <span className="button-icon">{getButtonIcon(option.key)}</span>
+            <span className="button-text">{option.label.charAt(0) + option.label.slice(1).toLowerCase()}</span>
+          </button>
+        ))}
+        
+        <div className="toolbar-divider" />
+        
         <button
           type="button"
-          className={`toolbar-button ${openMenu === 'insert' ? 'active' : ''}`}
-          onClick={() => {
-            setShapeMenuOpen(false);
-            setOpenMenu((prev) => (prev === 'insert' ? null : 'insert'));
-          }}
+          className="toolbar-button undo-redo-button"
+          onClick={() => onUndo?.()}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
         >
-          <span className="button-icon"></span>
-          Insert
+          <span className="button-icon">←</span>
+          <span className="button-text">Undo</span>
         </button>
-        {openMenu === 'insert' && renderInsertMenu()}
-      </div>
-
-      <div className="toolbar-group">
+        
         <button
           type="button"
-          className={`toolbar-button ${openMenu === 'design' ? 'active' : ''}`}
-          onClick={() => {
-            setShapeMenuOpen(false);
-            setOpenMenu((prev) => (prev === 'design' ? null : 'design'));
-          }}
+          className="toolbar-button undo-redo-button"
+          onClick={() => onRedo?.()}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Y)"
         >
-          <span className="button-icon"></span>
-          Theme
+          <span className="button-icon">→</span>
+          <span className="button-text">Redo</span>
         </button>
-        {openMenu === 'design' && renderDesignMenu()}
+
+        {activePanel && (
+          <div className="toolbar-panel" ref={panelRef}>
+            <div className="panel-options">{renderPanelContent()}</div>
+          </div>
+        )}
       </div>
 
-      <div className="toolbar-group">
-        <button
-          type="button"
-          className={`toolbar-button ${openMenu === 'background' ? 'active' : ''}`}
-          onClick={() => {
-            setShapeMenuOpen(false);
-            setOpenMenu((prev) => (prev === 'background' ? null : 'background'));
-          }}
-        >
-          <span className="button-icon"></span>
-          Background
+      <div className="toolbar-right">
+        <input
+          type="text"
+          className="filename-input"
+          placeholder="Enter filename"
+          value={fileName}
+          onChange={(e) => onFileNameChange?.(e.target.value)}
+          maxLength={50}
+        />
+        <button type="button" className="toolbar-button presentation-button" onClick={() => onStartSlideshow?.()}>
+          <span className="button-text">Presentation</span>
         </button>
-        {openMenu === 'background' && renderBackgroundMenu()}
-      </div>
-
-      <div className="toolbar-group toolbar-group-actions">
-        <button type="button" className="toolbar-button primary" onClick={() => onStartSlideshow?.()}>
-          <span className="button-icon"></span>
-          Presentation
-        </button>
-        <button type="button" className="toolbar-button secondary" onClick={() => onSavePresentation?.()}>
-          <span className="button-icon"></span>
-          Save PPTX
+        <button type="button" className="toolbar-button save-button" onClick={() => onSavePresentation?.()}>
+          <span className="button-text">Save PPTX</span>
         </button>
       </div>
     </div>

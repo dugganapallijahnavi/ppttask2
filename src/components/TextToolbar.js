@@ -101,6 +101,7 @@ const getResponsivePreset = (key, width) => {
 
 const TextToolbar = ({
   element,
+  editor,
   onUpdate,
   onDelete,
   position = { x: 0, y: 0 },
@@ -230,20 +231,41 @@ const TextToolbar = ({
     const numeric = Math.max(8, Math.min(200, Number(value) || fontSize));
     setFontSize(numeric);
     setPresetKey('custom');
-    applyUpdate({ fontSize: numeric, textStyle: 'custom' });
+    
+    // If editor is available and has selection, apply font size to selected text
+    if (editor && !editor.state.selection.empty) {
+      editor.chain().focus().setFontSize(numeric).run();
+    } else {
+      // Fallback to updating entire element
+      applyUpdate({ fontSize: numeric, textStyle: 'custom' });
+    }
   };
 
   const handleFontFamilyChange = (value) => {
     setFontFamily(value);
     setPresetKey('custom');
-    applyUpdate({ fontFamily: value, textStyle: 'custom' });
+    
+    // If editor is available and has selection, apply font family to selected text
+    if (editor && !editor.state.selection.empty) {
+      editor.chain().focus().setFontFamily(value).run();
+    } else {
+      // Fallback to updating entire element
+      applyUpdate({ fontFamily: value, textStyle: 'custom' });
+    }
   };
 
   const applyColor = (hex) => {
     const formatted = toHex(hex);
     setTextColor(formatted);
     setPresetKey('custom');
-    applyUpdate({ color: formatted });
+    
+    // If editor is available and has selection, apply color to selected text
+    if (editor && !editor.state.selection.empty) {
+      editor.chain().focus().setColor(formatted).run();
+    } else {
+      // Fallback to updating entire element
+      applyUpdate({ color: formatted });
+    }
   };
 
   const handleColorPickerChange = (event) => {
@@ -257,33 +279,54 @@ const TextToolbar = ({
     if (!element) {
       return;
     }
-    const nextBold = !element.bold;
-    applyUpdate({
-      bold: nextBold,
-      fontWeight: nextBold ? Math.max(element.fontWeight || 600, 600) : 400,
-      textStyle: 'custom'
-    });
-  }, [element, applyUpdate]);
+    
+    // If editor is available and has selection, apply bold to selected text
+    if (editor && !editor.state.selection.empty) {
+      editor.chain().focus().toggleBold().run();
+    } else {
+      // Fallback to updating entire element
+      const nextBold = !element.bold;
+      applyUpdate({
+        bold: nextBold,
+        fontWeight: nextBold ? Math.max(element.fontWeight || 600, 600) : 400,
+        textStyle: 'custom'
+      });
+    }
+  }, [element, editor, applyUpdate]);
 
   const toggleItalic = useCallback(() => {
     if (!element) {
       return;
     }
-    applyUpdate({
-      italic: !element.italic,
-      textStyle: 'custom'
-    });
-  }, [element, applyUpdate]);
+    
+    // If editor is available and has selection, apply italic to selected text
+    if (editor && !editor.state.selection.empty) {
+      editor.chain().focus().toggleItalic().run();
+    } else {
+      // Fallback to updating entire element
+      applyUpdate({
+        italic: !element.italic,
+        textStyle: 'custom'
+      });
+    }
+  }, [element, editor, applyUpdate]);
 
   const toggleUnderline = useCallback(() => {
     if (!element) {
       return;
     }
-    applyUpdate({
-      underline: !element.underline,
-      textStyle: 'custom'
-    });
-  }, [element, applyUpdate]);
+    
+    // If editor is available and has selection, apply underline to selected text
+    if (editor && !editor.state.selection.empty) {
+      editor.chain().focus().toggleUnderline().run();
+    } else {
+      // Fallback to updating entire element
+      applyUpdate({
+        underline: !element.underline,
+        textStyle: 'custom'
+      });
+    }
+  }, [element, editor, applyUpdate]);
 
   const handleDelete = useCallback(() => {
     if (!element || typeof onDelete !== 'function') {
@@ -361,25 +404,25 @@ const TextToolbar = ({
         <div className="toolbar-item styles">
           <button
             type="button"
-            className={`text-style-button ${element.bold ? 'is-active' : ''}`}
+            className={`text-style-button ${(editor && editor.isActive('bold')) || element.bold ? 'is-active' : ''}`}
             onClick={toggleBold}
-            aria-pressed={element.bold ? 'true' : 'false'}
+            aria-pressed={(editor && editor.isActive('bold')) || element.bold ? 'true' : 'false'}
           >
             <span className="style-label">B</span>
           </button>
           <button
             type="button"
-            className={`text-style-button ${element.italic ? 'is-active' : ''}`}
+            className={`text-style-button ${(editor && editor.isActive('italic')) || element.italic ? 'is-active' : ''}`}
             onClick={toggleItalic}
-            aria-pressed={element.italic ? 'true' : 'false'}
+            aria-pressed={(editor && editor.isActive('italic')) || element.italic ? 'true' : 'false'}
           >
             <span className="style-label">I</span>
           </button>
           <button
             type="button"
-            className={`text-style-button ${element.underline ? 'is-active' : ''}`}
+            className={`text-style-button ${(editor && editor.isActive('underline')) || element.underline ? 'is-active' : ''}`}
             onClick={toggleUnderline}
-            aria-pressed={element.underline ? 'true' : 'false'}
+            aria-pressed={(editor && editor.isActive('underline')) || element.underline ? 'true' : 'false'}
           >
             <span className="style-label">U</span>
           </button>
@@ -401,4 +444,19 @@ const TextToolbar = ({
   );
 };
 
-export default TextToolbar;
+export default React.memo(TextToolbar, (prevProps, nextProps) => {
+  // Prevent re-render if element and position haven't changed
+  return (
+    prevProps.element?.id === nextProps.element?.id &&
+    prevProps.element?.fontSize === nextProps.element?.fontSize &&
+    prevProps.element?.fontFamily === nextProps.element?.fontFamily &&
+    prevProps.element?.color === nextProps.element?.color &&
+    prevProps.element?.bold === nextProps.element?.bold &&
+    prevProps.element?.italic === nextProps.element?.italic &&
+    prevProps.element?.underline === nextProps.element?.underline &&
+    prevProps.position?.x === nextProps.position?.x &&
+    prevProps.position?.y === nextProps.position?.y &&
+    prevProps.isVisible === nextProps.isVisible &&
+    prevProps.editor === nextProps.editor
+  );
+});

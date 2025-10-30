@@ -6,16 +6,116 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import TextAlign from '@tiptap/extension-text-align';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Extension } from '@tiptap/core';
 import './RichTextEditor.css';
 
 const EMPTY_PARAGRAPH = '<p></p>';
 
-const RichTextEditor = ({
+// Custom FontSize extension
+const FontSize = Extension.create({
+  name: 'fontSize',
+
+  addOptions() {
+    return {
+      types: ['textStyle'],
+    }
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: element => element.style.fontSize?.replace('px', ''),
+            renderHTML: attributes => {
+              if (!attributes.fontSize) {
+                return {}
+              }
+              return {
+                style: `font-size: ${attributes.fontSize}px`,
+              }
+            },
+          },
+        },
+      },
+    ]
+  },
+
+  addCommands() {
+    return {
+      setFontSize: fontSize => ({ chain }) => {
+        return chain()
+          .setMark('textStyle', { fontSize })
+          .run()
+      },
+      unsetFontSize: () => ({ chain }) => {
+        return chain()
+          .setMark('textStyle', { fontSize: null })
+          .removeEmptyTextStyle()
+          .run()
+      },
+    }
+  },
+});
+
+// Custom FontFamily extension
+const FontFamily = Extension.create({
+  name: 'fontFamily',
+
+  addOptions() {
+    return {
+      types: ['textStyle'],
+    }
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontFamily: {
+            default: null,
+            parseHTML: element => element.style.fontFamily?.replace(/['"]/g, ''),
+            renderHTML: attributes => {
+              if (!attributes.fontFamily) {
+                return {}
+              }
+              return {
+                style: `font-family: ${attributes.fontFamily}`,
+              }
+            },
+          },
+        },
+      },
+    ]
+  },
+
+  addCommands() {
+    return {
+      setFontFamily: fontFamily => ({ chain }) => {
+        return chain()
+          .setMark('textStyle', { fontFamily })
+          .run()
+      },
+      unsetFontFamily: () => ({ chain }) => {
+        return chain()
+          .setMark('textStyle', { fontFamily: null })
+          .removeEmptyTextStyle()
+          .run()
+      },
+    }
+  },
+});
+
+const RichTextEditor = React.memo(({
   element,
   isSelected,
   onContentChange,
   onFocus,
   onBlur,
+  onEditorReady,
   placeholder = 'Write something'
 }) => {
   const [, forceUpdate] = useState(0);
@@ -26,6 +126,8 @@ const RichTextEditor = ({
       extensions: [
         Color.configure({ types: [TextStyle.name] }),
         TextStyle,
+        FontSize,
+        FontFamily,
         Underline,
         TextAlign.configure({
           defaultAlignment: 'left',
@@ -72,6 +174,9 @@ const RichTextEditor = ({
       return;
     }
 
+    // Notify parent that editor is ready
+    onEditorReady?.(editor);
+
     const handleFocus = () => {
       onFocus?.();
     };
@@ -93,7 +198,7 @@ const RichTextEditor = ({
       editor.off('selectionUpdate', handleSelectionUpdate);
       editor.off('transaction', handleSelectionUpdate);
     };
-  }, [editor, onFocus, onBlur]);
+  }, [editor, onFocus, onBlur, onEditorReady]);
 
   useEffect(() => {
     if (!editor) {
@@ -156,6 +261,21 @@ const RichTextEditor = ({
       <EditorContent editor={editor} />
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  return (
+    prevProps.element?.id === nextProps.element?.id &&
+    prevProps.element?.text === nextProps.element?.text &&
+    prevProps.element?.fontSize === nextProps.element?.fontSize &&
+    prevProps.element?.fontFamily === nextProps.element?.fontFamily &&
+    prevProps.element?.color === nextProps.element?.color &&
+    prevProps.element?.textAlign === nextProps.element?.textAlign &&
+    prevProps.element?.bold === nextProps.element?.bold &&
+    prevProps.element?.italic === nextProps.element?.italic &&
+    prevProps.element?.underline === nextProps.element?.underline &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.placeholder === nextProps.placeholder
+  );
+});
 
 export default RichTextEditor;

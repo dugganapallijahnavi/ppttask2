@@ -19,7 +19,7 @@
   height: 28px;
   border-radius: 6px;
   border: 1px solid #d1d5db;
-  background: #f9fafb;
+  background: #e5e7eb;
   color: #1f2937;
   font-size: 13px;
   font-weight: 500;
@@ -30,7 +30,7 @@
 }
 
 .chart-type-select:hover {
-  background: #f3f4f6;
+  background: #d1d5db;
   border-color: #9ca3af;
 }
 
@@ -41,7 +41,7 @@
 
 .chart-toolbar-button {
   border: 1px solid #d1d5db;
-  background: #f9fafb;
+  background: #e5e7eb;
   color: #374151;
   font-size: 13px;
   font-weight: 600;
@@ -53,19 +53,19 @@
 }
 
 .chart-toolbar-button:hover {
-  background: #f3f4f6;
+  background: #d1d5db;
   border-color: #9ca3af;
   color: #111827;
 }
 
 .chart-toolbar-button.delete {
   border-color: #d1d5db;
-  background: #f9fafb;
+  background: #e5e7eb;
   color: #374151;
 }
 
 .chart-toolbar-button.delete:hover {
-  background: #f3f4f6;
+  background: #d1d5db;
   border-color: #9ca3af;
   color: #111827;
 }

@@ -1,13 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './Toolbar.css';
 
-const insertOptions = [
-  { key: 'addText', label: 'Text' },
-  { key: 'addImage', label: 'Image' },
-  { key: 'addChart', label: 'Chart' },
-  { key: 'addShape', label: 'Shape' }
-];
-
 const Toolbar = ({
   onInsertSelect,
   onPreview,
@@ -17,7 +10,11 @@ const Toolbar = ({
   onSelectBackground,
   themeOptions = [],
   selectedThemeId = null,
-  onSelectTheme
+  onSelectTheme,
+  onUndo,
+  onRedo,
+  fileName = 'task1',
+  onFileNameChange
 }) => {
   const [isInsertOpen, setIsInsertOpen] = useState(false);
   const [isBackgroundOpen, setIsBackgroundOpen] = useState(false);
@@ -58,91 +55,96 @@ const Toolbar = ({
   return (
     <div className="toolbar">
       <div className="toolbar-left">
-        <div className="toolbar-group" ref={insertRef}>
-          <button
-            type="button"
-            className={`toolbar-button ${isInsertOpen ? 'active' : ''}`}
-            onClick={() => handleToggle('insert')}
-          >
-            Insert
-          </button>
-          {isInsertOpen && (
-            <div className="dropdown-menu">
-              {insertOptions.map(option => (
-                <button
-                  key={option.key}
-                  type="button"
-                  className="dropdown-item"
-                  onClick={() => onInsertSelect(option.key)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Insert Buttons */}
+        <button
+          type="button"
+          className="toolbar-button icon-button"
+          onClick={() => onInsertSelect('addText')}
+          title="Add Text"
+        >
+          <span className="button-icon">T</span>
+          <span className="button-label">Text</span>
+        </button>
+        
+        <button
+          type="button"
+          className="toolbar-button icon-button"
+          onClick={() => onInsertSelect('addImage')}
+          title="Add Image"
+        >
+          <span className="button-icon">🖼</span>
+          <span className="button-label">Image</span>
+        </button>
+        
+        <button
+          type="button"
+          className="toolbar-button icon-button"
+          onClick={() => onInsertSelect('addShape')}
+          title="Add Shape"
+        >
+          <span className="button-icon">◇</span>
+          <span className="button-label">Shapes</span>
+        </button>
+        
+        <button
+          type="button"
+          className="toolbar-button icon-button"
+          onClick={() => onInsertSelect('addChart')}
+          title="Add Chart"
+        >
+          <span className="button-icon">📊</span>
+          <span className="button-label">Charts</span>
+        </button>
 
-        <div className="toolbar-group" ref={themeRef}>
-          <button
-            type="button"
-            className={`toolbar-button ${isThemeOpen ? 'active' : ''}`}
-            onClick={() => handleToggle('theme')}
-          >
-            Themes
-          </button>
-          {isThemeOpen && themeOptions.length > 0 && (
-            <div className="dropdown-menu">
-              {themeOptions.map(theme => (
-                <button
-                  key={theme.id}
-                  type="button"
-                  className={`dropdown-item ${selectedThemeId === theme.id ? 'active' : ''}`}
-                  onClick={() => onSelectTheme(theme.id)}
-                >
-                  {theme.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <button
+          type="button"
+          className="toolbar-button icon-button"
+          onClick={() => onInsertSelect('addTable')}
+          title="Add Table"
+        >
+          <span className="button-icon">⊞</span>
+          <span className="button-label">Table</span>
+        </button>
 
-        <div className="toolbar-group" ref={backgroundRef}>
-          <button
-            type="button"
-            className={`toolbar-button ${isBackgroundOpen ? 'active' : ''}`}
-            onClick={() => handleToggle('background')}
-          >
-            Background
-          </button>
-          {isBackgroundOpen && (
-            <div className="dropdown-menu">
-              {backgroundOptions.map(color => (
-                <button
-                  key={color}
-                  type="button"
-                  className={`dropdown-item ${selectedBackground === color ? 'active' : ''}`}
-                  onClick={() => onSelectBackground(color)}
-                >
-                  <span className="color-preview" style={{ backgroundColor: color }} />
-                  {color}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Divider */}
+        <div className="toolbar-divider"></div>
+
+        {/* Undo/Redo */}
+        <button
+          type="button"
+          className="toolbar-button icon-only"
+          onClick={onUndo}
+          title="Undo"
+        >
+          <span className="button-icon">←</span>
+          <span className="button-label">Undo</span>
+        </button>
+        
+        <button
+          type="button"
+          className="toolbar-button icon-only"
+          onClick={onRedo}
+          title="Redo"
+        >
+          <span className="button-icon">→</span>
+          <span className="button-label">Redo</span>
+        </button>
+      </div>
+
+      <div className="toolbar-center">
+        <input
+          type="text"
+          className="file-name-input"
+          value={fileName}
+          onChange={(e) => onFileNameChange && onFileNameChange(e.target.value)}
+          placeholder="Enter file name"
+        />
       </div>
 
       <div className="toolbar-right">
-        <button 
-          type="button" 
-          className="toolbar-button primary"
-          onClick={onPreview}
-        >
-          Presentation
-        </button>
         <button
           type="button"
-          className="toolbar-button secondary"
+          className="toolbar-button save-button"
           onClick={handleSaveClick}
           disabled={isDownloading}
         >

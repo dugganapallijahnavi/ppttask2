@@ -5,6 +5,16 @@ const CANVAS_HEIGHT = 540;
 const SLIDE_WIDTH_IN = 10;
 const SLIDE_HEIGHT_IN = 5.625;
 
+const DEFAULT_SERIES_COLORS = [
+  '#3B82F6',
+  '#6366F1',
+  '#10B981',
+  '#F59E0B',
+  '#EF4444',
+  '#8B5CF6',
+  '#0EA5E9'
+];
+
 const pxToInches = (value, axis = 'x') => {
   const numeric = Number(value) || 0;
   const base = axis === 'x' ? CANVAS_WIDTH : CANVAS_HEIGHT;
@@ -90,6 +100,182 @@ const addTextElements = (pptSlide, slide) => {
   });
 };
 
+const inchesOptions = (item, defaults = {}) => ({
+  x: pxToInches(item.x ?? defaults.x ?? 0, 'x'),
+  y: pxToInches(item.y ?? defaults.y ?? 0, 'y'),
+  w: pxToInches(item.width ?? defaults.w ?? CANVAS_WIDTH * 0.25, 'x'),
+  h: pxToInches(item.height ?? defaults.h ?? CANVAS_HEIGHT * 0.25, 'y')
+});
+
+const addShapeElements = (pptx, pptSlide, slide) => {
+  const { ShapeType } = pptx;
+  if (!ShapeType) {
+    return;
+  }
+
+  (slide?.content || []).forEach((item) => {
+    if (item?.type !== 'shape') {
+      return;
+    }
+
+    const fillColor = normalizeHex(item.color || item.fillColor || '#3B82F6');
+    const strokeColor = normalizeHex(item.borderColor || item.color || fillColor);
+    const strokeWidth = Math.max(0, Number(item.borderWidth || 0) * 0.75);
+
+    const baseOptions = {
+      ...inchesOptions(item, { w: 160, h: 100 }),
+      fill: { color: fillColor },
+      line: {
+        color: strokeColor,
+        width: strokeWidth
+      }
+    };
+
+    if (item.text && item.shape !== 'line') {
+      baseOptions.text = {
+        text: item.text,
+        options: {
+          align: 'center',
+          fontFace: 'Segoe UI',
+          fontSize: 14,
+          color: 'FFFFFF'
+        }
+      };
+    }
+
+    const shapeMap = {
+      circle: ShapeType.ellipse,
+      triangle: ShapeType.triangle,
+      arrow: ShapeType.rightArrow,
+      star: ShapeType.star5,
+      line: ShapeType.line
+    };
+
+    const shapeType = shapeMap[item.shape] || ShapeType.rect;
+    pptSlide.addShape(shapeType, baseOptions);
+  });
+};
+
+const addImageElements = (pptSlide, slide) => {
+  (slide?.content || []).forEach((item) => {
+    if (item?.type !== 'image' || !item.src) {
+      return;
+    }
+
+    pptSlide.addImage({
+      data: item.src,
+      ...inchesOptions(item, { w: 320, h: 240 })
+    });
+  });
+};
+
+const normalizeDataset = (dataset, labels) => ({
+  name: dataset.label || 'Series',
+  labels,
+  values: Array.isArray(dataset.data) ? dataset.data : labels.map(() => 0)
+});
+
+const resolveSeriesColor = (dataset, fallback) => {
+  const directColor = dataset.color || dataset.borderColor || dataset.backgroundColor;
+  if (Array.isArray(directColor)) {
+    return normalizeHex(directColor[0], fallback);
+  }
+  if (typeof directColor === 'string') {
+    return normalizeHex(directColor, fallback);
+  }
+  return normalizeHex(fallback);
+};
+
+const resolvePieColors = (dataset, fallbackPalette) => {
+  if (Array.isArray(dataset.segmentColors) && dataset.segmentColors.length) {
+    return dataset.segmentColors.map((color, index) =>
+      normalizeHex(color, fallbackPalette[index % fallbackPalette.length])
+    );
+  }
+
+  if (Array.isArray(dataset.backgroundColor) && dataset.backgroundColor.length) {
+    return dataset.backgroundColor.map((color, index) =>
+      normalizeHex(color, fallbackPalette[index % fallbackPalette.length])
+    );
+  }
+
+  const baseColor = resolveSeriesColor(dataset, fallbackPalette[0]);
+  const length = Array.isArray(dataset.data) ? dataset.data.length : fallbackPalette.length;
+  return Array.from({ length }, (_, index) => normalizeHex(baseColor, fallbackPalette[index % fallbackPalette.length]));
+};
+
+const addChartElements = (pptx, pptSlide, slide) => {
+  const { ChartType } = pptx;
+  if (!ChartType) {
+    return;
+  }
+
+  (slide?.content || []).forEach((item) => {
+    if (item?.type !== 'chart') {
+      return;
+    }
+
+    const data = item.chartData || {};
+    const labels = Array.isArray(data.labels) ? data.labels : [];
+    const datasets = Array.isArray(data.datasets) ? data.datasets : [];
+    if (!labels.length || !datasets.length) {
+      return;
+    }
+
+    const baseOptions = {
+      ...inchesOptions(item, { w: 420, h: 280 })
+    };
+
+    const chartType = (item.chartType || data.type || 'bar').toLowerCase();
+
+    if (chartType === 'pie') {
+      const seriesColors = resolvePieColors(datasets[0] || {}, DEFAULT_SERIES_COLORS);
+      const pieSeries = datasets[0] ? [normalizeDataset(datasets[0], labels)] : [];
+      pptSlide.addChart(ChartType.pie, pieSeries, {
+        ...baseOptions,
+        chartColors: seriesColors
+      });
+      return;
+    }
+
+    if (chartType === 'area') {
+      const areaSeries = datasets.map((dataset) => normalizeDataset(dataset, labels));
+      const chartColors = datasets.map((dataset, index) =>
+        resolveSeriesColor(dataset, DEFAULT_SERIES_COLORS[index % DEFAULT_SERIES_COLORS.length])
+      );
+      pptSlide.addChart(ChartType.area, areaSeries, {
+        ...baseOptions,
+        chartColors
+      });
+      return;
+    }
+
+    if (chartType === 'columnline' && datasets.length >= 2) {
+      const comboSeries = datasets.map((dataset, index) => ({
+        type: index === datasets.length - 1 ? ChartType.line : ChartType.column,
+        ...normalizeDataset(dataset, labels)
+      }));
+      const chartColors = datasets.map((dataset, index) =>
+        resolveSeriesColor(dataset, DEFAULT_SERIES_COLORS[index % DEFAULT_SERIES_COLORS.length])
+      );
+      pptSlide.addChart(ChartType.combo, comboSeries, {
+        ...baseOptions,
+        chartColors
+      });
+      return;
+    }
+
+    const barSeries = datasets.map((dataset) => normalizeDataset(dataset, labels));
+    const chartColors = datasets.map((dataset, index) =>
+      resolveSeriesColor(dataset, DEFAULT_SERIES_COLORS[index % DEFAULT_SERIES_COLORS.length])
+    );
+    pptSlide.addChart(ChartType.bar, barSeries, {
+      ...baseOptions,
+      chartColors
+    });
+  });
+};
+
 export const exportSlidesAsPptx = async (slides, fileName) => {
   if (typeof PptxGenJS !== 'function') {
     throw new Error('Unable to load PowerPoint exporter. Please refresh and try again.');
@@ -102,6 +288,9 @@ export const exportSlidesAsPptx = async (slides, fileName) => {
       bkgd: normalizeHex(getSlideBackground(slide))
     });
     addTextElements(pptSlide, slide);
+    addShapeElements(pptx, pptSlide, slide);
+    addImageElements(pptSlide, slide);
+    addChartElements(pptx, pptSlide, slide);
   });
 
   const timestamp = new Date().toISOString().split('T')[0];

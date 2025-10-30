@@ -79,6 +79,16 @@ const ChartComponent = ({ type = 'bar', data, options = {}, style }) => {
     const defaults = {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
+      animations: false,
+      transitions: {
+        active: {
+          animation: {
+            duration: 0
+          }
+        }
+      },
+      responsiveAnimationDuration: 0,
       plugins: {
         legend: {
           display: true,
@@ -157,4 +167,28 @@ const ChartComponent = ({ type = 'bar', data, options = {}, style }) => {
   );
 };
 
-export default ChartComponent;
+export default React.memo(ChartComponent, (prevProps, nextProps) => {
+  // Deep comparison for chart data to prevent unnecessary re-renders
+  const prevData = prevProps.data;
+  const nextData = nextProps.data;
+  
+  if (prevProps.type !== nextProps.type) return false;
+  
+  // Check labels
+  if (JSON.stringify(prevData?.labels) !== JSON.stringify(nextData?.labels)) return false;
+  
+  // Check datasets
+  if (prevData?.datasets?.length !== nextData?.datasets?.length) return false;
+  
+  // Check each dataset
+  for (let i = 0; i < (prevData?.datasets?.length || 0); i++) {
+    const prevDataset = prevData.datasets[i];
+    const nextDataset = nextData.datasets[i];
+    
+    if (prevDataset?.label !== nextDataset?.label) return false;
+    if (prevDataset?.color !== nextDataset?.color) return false;
+    if (JSON.stringify(prevDataset?.data) !== JSON.stringify(nextDataset?.data)) return false;
+  }
+  
+  return true;
+});

@@ -5,7 +5,6 @@ const CHART_TYPE_OPTIONS = [
   { value: 'bar', label: 'Bar' },
   { value: 'area', label: 'Area' },
   { value: 'pie', label: 'Pie' },
-  { value: 'line', label: 'Line' },
   { value: 'columnLine', label: 'Column + Line' }
 ];
 
@@ -108,4 +107,13 @@ const ChartToolbar = ({
   );
 };
 
-export default ChartToolbar;
+export default React.memo(ChartToolbar, (prevProps, nextProps) => {
+  // Prevent re-render if element and position haven't changed
+  return (
+    prevProps.element?.id === nextProps.element?.id &&
+    prevProps.element?.chartType === nextProps.element?.chartType &&
+    prevProps.position?.x === nextProps.position?.x &&
+    prevProps.position?.y === nextProps.position?.y &&
+    prevProps.isVisible === nextProps.isVisible
+  );
+});

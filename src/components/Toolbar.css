@@ -5,17 +5,24 @@
   align-items: center;
   padding: 12px 20px;
   background: #f5f5f5;
-  border-bottom: 1px solid rgba(31, 41, 55, 0.12);
+  border-bottom: 1px solid #e0e0e0;
   gap: 20px;
   flex-wrap: wrap;
 }
 
 .toolbar-left,
+.toolbar-center,
 .toolbar-right {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.toolbar-center {
+  flex: 1;
+  justify-content: center;
+  max-width: 400px;
 }
 
 .toolbar-group {
@@ -43,65 +50,79 @@ button,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 110px;
-  padding: 10px 18px;
+  gap: 6px;
+  padding: 8px 14px;
   font-size: 14px;
-  font-weight: 600;
-  color: #1f1f1f;
+  font-weight: 500;
+  color: #333333;
   background-color: #ffffff;
-  border: 1px solid rgba(17, 24, 39, 0.15);
-  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
+}
+
+/* Icon Button Styles */
+.toolbar-button.icon-button {
+  min-width: auto;
+}
+
+.toolbar-button .button-icon {
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-button .button-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Icon Only Buttons (Undo/Redo) */
+.toolbar-button.icon-only {
+  min-width: auto;
+  padding: 8px 12px;
+}
+
+.toolbar-button.icon-only .button-label {
+  font-size: 13px;
 }
 
 /* Hover */
 .toolbar-button:hover {
-  color: #111111;
-  border-color: rgba(31, 41, 55, 0.35);
-  background-color: #e5e5e5;
+  background-color: #f5f5f5;
+  border-color: #b0b0b0;
 }
 
-/* Remove focus & active styles */
-.toolbar-button:focus,
+/* Active */
 .toolbar-button:active {
+  background-color: #e8e8e8;
+}
+
+/* Remove focus styles */
+.toolbar-button:focus {
   outline: none;
-  box-shadow: none;
-  background-clip: padding-box;
 }
 
-/* Primary (Presentation) */
-.toolbar-button.primary {
-  background: linear-gradient(135deg, #f9f9f9 0%, #d5d5d5 100%);
-  border: 1px solid rgba(31, 41, 55, 0.25);
-  color: #1a1a1a;
-}
-.toolbar-button.primary:hover {
-  color: #111111;
-  border-color: rgba(17, 24, 39, 0.35);
-  background: linear-gradient(135deg, #ededed 0%, #d5d5d5 100%);
+/* Save Button */
+.toolbar-button.save-button {
+  background-color: #000000;
+  color: #ffffff;
+  border-color: #000000;
+  font-weight: 600;
+  padding: 8px 20px;
 }
 
-/* Secondary / Default (Insert, Themes, Background, Save PPTX) */
-.toolbar-button.secondary,
-.toolbar-group > .toolbar-button {
-  background-color: #f9f9f9;
-  border-color: rgba(17, 24, 39, 0.15);
-  color: #1f1f1f;
+.toolbar-button.save-button:hover {
+  background-color: #333333;
+  border-color: #333333;
 }
 
-.toolbar-button.secondary:hover,
-.toolbar-group > .toolbar-button:hover {
-  color: #111111;
-  border-color: rgba(31, 41, 55, 0.35);
-  background-color: #e5e5e5;
-}
-
-/* Remove active blue pill */
-.toolbar-button.active {
-  background: #d5d5d5;
-  border-color: rgba(17, 24, 39, 0.35);
+.toolbar-button.save-button:active {
+  background-color: #1a1a1a;
 }
 
 /* Disabled */
@@ -110,15 +131,47 @@ button,
   cursor: not-allowed;
 }
 
+/* Toolbar Divider */
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background-color: #d0d0d0;
+  margin: 0 4px;
+}
+
+/* File Name Input */
+.file-name-input {
+  width: 100%;
+  max-width: 300px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #333333;
+  background-color: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.file-name-input:hover {
+  border-color: #b0b0b0;
+}
+
+.file-name-input:focus {
+  border-color: #666666;
+  background-color: #fafafa;
+}
+
 /* ===================== Dropdown Container ===================== */
 .dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  background: #1a1a1a;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #ffffff;
+  border: 1px solid #d0d0d0;
   border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 2000;
   overflow: hidden;
   padding: 0;
@@ -138,35 +191,33 @@ button,
   box-sizing: border-box;
   padding: 12px 16px;
   cursor: pointer;
-  color: #f9f9f9;
+  color: #333333;
   text-align: left;
   user-select: none;
   position: relative;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.07);
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .dropdown-row:last-child {
   border-bottom: none;
 }
 
-/* Dropdown row hover - only change text color */
+/* Dropdown row hover */
 .dropdown-row {
   user-select: none;
   -webkit-user-drag: none;
   -khtml-user-drag: none;
   -moz-user-drag: none;
   -o-user-drag: none;
-  user-drag: none;
 }
 
 .dropdown-menu:not(.theme-menu):not(.background-menu) .dropdown-row:hover,
 .dropdown-menu:not(.theme-menu):not(.background-menu) .dropdown-row:focus-visible {
-  color: #808080;  /* Light gray text on hover */
-  background: transparent;
+  background: #f5f5f5;
 }
 
 .dropdown-row > * {
-  pointer-events: none;  /* Prevent drag on child elements */
+  pointer-events: none;
 }
 
 /* ===================== THEME MENU ===================== */
@@ -181,11 +232,11 @@ button,
   padding: 12px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: #a0a0a0;
+  color: #666666;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-  background: rgba(15, 23, 42, 0.5);
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
   flex-shrink: 0;
 }
 
@@ -215,8 +266,8 @@ button,
   width: 100%;
   gap: 12px;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -225,15 +276,15 @@ button,
 
 .theme-item:hover,
 .theme-item:focus-visible {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: #f5f5f5;
+  border-color: #b0b0b0;
   transform: translateY(-1px);
 }
 
 .theme-item.selected {
-  background: rgba(59, 130, 246, 0.25);
-  border-color: rgba(37, 99, 235, 0.8);
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.4);
+  background: #e8e8e8;
+  border-color: #666666;
+  box-shadow: 0 0 0 1px #999999;
 }
 
 /* ============ Theme Preview ============ */
@@ -243,21 +294,21 @@ button,
   height: 42px;
   border-radius: 6px;
   overflow: hidden;
-  background: #1a1a1a;
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: #ffffff;
+  border: 1px solid #d0d0d0;
   flex-shrink: 0;
   transition: all 0.2s ease;
 }
 
 .theme-item:hover .preview {
   transform: scale(1.05);
-  border-color: rgba(148, 163, 184, 0.4);
+  border-color: #b0b0b0;
 }
 
 .preview-bg {
   position: absolute;
   inset: 0;
-  background: #1a1a1a;
+  background: #ffffff;
 }
 
 .preview-accent {
@@ -266,13 +317,13 @@ button,
   right: 0;
   bottom: 0;
   height: 8px;
-  background: #d0d0d0;
+  background: #666666;
 }
 
 .theme-label {
   font-size: 13px;
   font-weight: 500;
-  color: #e2e2e2;
+  color: #333333;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -300,13 +351,13 @@ button,
 }
 
 .color-option:hover {
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.35);
-  background-color: rgba(59, 130, 246, 0.15) !important;
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.15);
+  transform: scale(1.1);
 }
 
 .color-option.selected {
-  border-color: rgba(37, 99, 235, 0.9);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  border-color: #333333;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.2);
 }
 
 .custom-color {
@@ -314,7 +365,7 @@ button,
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px 12px;
-  color: #d6d6d6;
+  color: #333333;
   font-size: 13px;
 }
 

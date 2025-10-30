@@ -1,0 +1,120 @@
+.table-component-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-container {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  background-color: #ffffff;
+  border-radius: 0;
+}
+
+.table-container.selected {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
+.presentation-table {
+  border-collapse: collapse;
+  font-family: 'Inter', sans-serif;
+  table-layout: auto;
+}
+
+.presentation-table td {
+  transition: background-color 0.15s ease;
+}
+
+.presentation-table td:hover {
+  background-color: rgba(59, 130, 246, 0.05) !important;
+}
+
+.table-cell-content {
+  padding: 0;
+  line-height: 1.4;
+}
+
+.table-cell-input {
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+.table-cell-input:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
+/* Scrollbar styling */
+.table-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Resize handles */
+.col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  background-color: transparent;
+  z-index: 10;
+  transition: background-color 0.2s ease;
+}
+
+.col-resize-handle:hover {
+  background-color: rgba(59, 130, 246, 0.3);
+}
+
+.col-resize-handle:active {
+  background-color: rgba(59, 130, 246, 0.5);
+}
+
+.row-resize-handle {
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  cursor: row-resize;
+  background-color: transparent;
+  z-index: 10;
+  transition: background-color 0.2s ease;
+}
+
+.row-resize-handle:hover {
+  background-color: rgba(59, 130, 246, 0.3);
+}
+
+.row-resize-handle:active {
+  background-color: rgba(59, 130, 246, 0.5);
+}
+
+/* Prevent text selection during resize */
+body.resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.presentation-table td {
+  position: relative;
+}

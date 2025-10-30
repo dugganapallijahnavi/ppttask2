@@ -171,4 +171,14 @@ const ImageComponent = ({
   );
 };
 
-export default ImageComponent;
+export default React.memo(ImageComponent, (prevProps, nextProps) => {
+  // Prevent re-render if element hasn't changed
+  return (
+    prevProps.element?.id === nextProps.element?.id &&
+    prevProps.element?.src === nextProps.element?.src &&
+    prevProps.element?.width === nextProps.element?.width &&
+    prevProps.element?.height === nextProps.element?.height &&
+    prevProps.isEditing === nextProps.isEditing &&
+    prevProps.showDeleteButton === nextProps.showDeleteButton
+  );
+});
